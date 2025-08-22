@@ -1,0 +1,1064 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<title>扫码核验</title>
+		<meta name="viewport" content="width=375, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+		<!-- 你现有站点里已经有的通用样式文件即可，这里不输出任何新的 CSS -->
+		<link rel="stylesheet" href="css/style.css" />
+		<link rel="stylesheet" href="css/scan.css" />
+		<link href="https://cdn.jsdelivr.net/npm/remixicon@4.5.0/fonts/remixicon.css" rel="stylesheet" />
+
+		<!-- Vue 3 -->
+		<script src="js/v3.2.8/vue.global.prod.js"></script>
+
+		<!-- 微信 / 企业微信 JSSDK（用于内置扫码和授权） -->
+		<script src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
+
+		<!-- ZXing（兜底方案，仅在原生 BarcodeDetector 不可用时才会启用） -->
+		<script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.21.2/umd/index.min.js"></script>
+
+		<script src="js/qrcode.min.js"></script>
+
+	</head>
+	<body>
+		<div class="container">
+			<div class="blue-bg">
+				<img src="img/蓝色背景old.png" alt="" />
+			</div>
+
+			<div id="app">
+				<div class="page-wrapper">
+					<transition :name="transitionName" mode="out-in">
+						<div class="page" :key="currentPage">
+
+							<!-- 首页：只有“扫码”一栏 + 场次信息 -->
+							<template v-if="currentPage==='home'">
+								<div class="header">
+									<div class="header-logo"><img src="img/bochu.svg" alt="BOCHU Logo" /></div>
+									<div class="header-title">
+										<h1>会议管理</h1>
+									</div>
+
+									<div class="header-info" v-if="selectedSession">
+										<div class="info">
+											<div class="info-top">
+												<div class="info-icon"><i class="ri-calendar-check-line"></i></div>
+												<div class="info-text">{{ selectedSession.date }}</div>
+											</div>
+											<div class="info-bottom">
+												<div class="info-icon"><i class="ri-map-pin-line"></i></div>
+												<div class="info-text">{{ selectedSession.city }}</div>
+											</div>
+										</div>
+										<a class="session-change" @click="openSessionPicker">
+											<i class="ri-loop-left-line"></i>
+										</a>
+									</div>
+
+									<div class="header-info" v-else>
+										<a class="session-select" @click="openSessionPicker">请选择场次</a>
+									</div>
+								</div>
+
+								<div class="menu">
+									<div class="menu-item" @click="enterScan">
+										<div class="menu-item-top"><i class="ri-qr-scan-2-line"></i></div>
+										<div class="menu-item-bottom">扫码</div>
+									</div>
+									<div class="menu-item" @click="enterShare">
+										<div class="menu-item-top"><i class="ri-share-line"></i></div>
+										<div class="menu-item-bottom">邀请</div>
+									</div>
+									<div class="menu-item" @click="enterAudit">
+										<div class="menu-item-top"><i class="ri-verified-badge-line"></i></div>
+										<div class="menu-item-bottom">审核</div>
+									</div>
+								</div>
+							</template>
+
+							<!-- 扫码页：无文字、无按钮，进入即自动扫描 -->
+							<template v-else-if="currentPage==='Scan'">
+								<div id="page-scan">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">扫码</div>
+									</div>
+
+									<div class="scan-cam">
+										<video id="scan-video" autoplay playsinline muted></video>
+
+										<!-- 遮罩：四个黑色区域，围出中间方框 -->
+										<div class="scan-overlay">
+											<div class="mask top"></div>
+											<div class="mask bottom"></div>
+											<div class="mask left"></div>
+											<div class="mask right"></div>
+										</div>
+
+										<!-- 中间取景框（方形边框 + 动画线条） -->
+										<div class="scan-frame">
+											<div class="scan-box"></div>
+											<div class="scan-corner tl"></div>
+											<div class="scan-corner tr"></div>
+											<div class="scan-corner bl"></div>
+											<div class="scan-corner br"></div>
+											<div class="scan-line"></div>
+										</div>
+
+
+
+										<!-- 某些模式下会用到抓帧 -->
+										<canvas id="scan-canvas" style="display:none;"></canvas>
+									</div>
+								</div>
+							</template>
+
+							<!-- 结果页 -->
+							<template v-else-if="currentPage==='Result'">
+								<div id="page-Result">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">扫描结果</div>
+									</div>
+
+									<!-- 核验卡片（纯展示） -->
+									<div class="form-card result-card">
+										<div class="result-badge"
+											:class="{'ok': verify.status==='success','fail': verify.status==='fail'}">
+											<i class="ri-checkbox-circle-fill" v-if="verify.status==='success'"></i>
+											<i class="ri-close-circle-fill" v-else-if="verify.status==='fail'"></i>
+											<span v-if="verify.status==='loading'">正在核验…</span>
+											<span v-else-if="verify.status==='success'">核验成功！</span>
+											<span v-else>核验失败</span>
+										</div>
+
+										<div class="result-title">以下是到访人信息：</div>
+
+										<div v-if="verify.status==='loading'" class="result-empty">正在获取数据…</div>
+										<div v-else-if="verify.status==='fail'" class="result-empty">未查询到有效记录或二维码无效
+										</div>
+										<div v-else-if="verify.attendees.length===0" class="result-empty">未获取到人员信息</div>
+
+										<template v-else>
+											<div v-for="p in verify.attendees" :key="p.id" class="result-item"
+												:class="{'result-item--hotel': p.needHotel==='yes'}">
+												<div class="result-name">{{ p.name }}</div>
+												<ul class="result-meta">
+													<li v-if="p.needHotel==='yes'"><i class="ri-hotel-bed-line"></i>
+														需要住宿</li>
+													<li v-if="p.stayNights?.length"><i
+															class="ri-calendar-check-line"></i>
+														入住日期：{{ p.stayNights.join('、') }}</li>
+													<li v-if="p.hotelPlan"><i class="ri-home-4-line"></i>
+														入住房型：{{ hotelPlanLabel(p.hotelPlan) }}</li>
+													<li v-if="p.company"><i class="ri-briefcase-2-line"></i>
+														公司：{{ p.company }}</li>
+													<li v-if="p.title"><i class="ri-briefcase-2-line"></i>
+														职位：{{ p.title }}</li>
+													<li v-if="p.mobile"><i class="ri-smartphone-line"></i>
+														手机：{{ p.mobile }}</li>
+													<li v-if="p.carPlate"><i class="ri-car-line"></i>
+														车牌：{{ p.carPlate }}</li>
+												</ul>
+												<div class="result-divider"></div>
+											</div>
+										</template>
+									</div>
+
+									<div class="btn-bottom">
+										<button class="submit-btn" @click="go('Scan')">继续核验</button>
+									</div>
+								</div>
+							</template>
+
+							<!-- 邀请页 -->
+							<template v-else-if="currentPage==='Share'">
+								<div id="page-Share">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">分享邀请链接</div>
+									</div>
+
+									<div class="share-card">
+										<p class="share-greet">分享您的专属邀请链接</p>
+										
+										<div class="share-qr-wrap">
+											<div class="share-qr-box" id="qrcode-box"></div>
+											<p class="share-qr-tip">扫描二维码分享</p>
+										</div>
+										
+										
+										<div class="share-link-wrap">
+											<p class="share-text">
+												邀请客户填写参会信息，分享您的专属链接：
+											</p>
+											<div class="input-row">
+												<input type="text" v-model="shareLink" class="share-link-input" />
+											</div>
+
+											<button class="copy-btn" @click="copyLink">复制链接</button>
+										</div>
+										
+									</div>
+
+								</div>
+							</template>
+
+
+
+
+
+							<!-- 审核页 (修改后的模板以支持status显示和按钮条件渲染) -->
+							<template v-else-if="currentPage==='Audit'">
+								<div id="page-Audit">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">审核</div>
+									</div>
+									<!-- 审核信息卡片 -->
+									<div class="Audit-info">
+										<p class="Audit-tip">待审核的参会人员：<span>{{ pendingCount }}</span>人</p>
+									</div>
+									<div class="Audit-card">
+										<div v-for="p in auditList" :key="p.id" class="Audit-item"
+											:class="{ 'Audit-approved': p.status === 'approved', 'Audit-rejected': p.status === 'rejected' }">
+											<div class="Audit-head">
+												<div class="Audit-name">{{ p.name }}</div>
+												<div class="Audit-actions">
+													<button v-if="p.status !== 'approved'" class="Audit-icon pass"
+														@click="approveAudit(p.id)" aria-label="通过">
+														<i class="ri-check-line"></i>
+													</button>
+													<button v-if="p.status === 'pending'" class="Audit-icon reject"
+														@click="rejectAudit(p.id)" aria-label="拒绝">
+														<i class="ri-close-line"></i>
+													</button>
+												</div>
+											</div>
+											<div class="Audit-status">
+												<img v-if="p.status === 'approved'" src="img/approved.svg"
+													alt="Approved" />
+												<img v-if="p.status === 'rejected'" src="img/rejected.svg"
+													alt="Rejected" />
+											</div>
+											<ul class="Audit-meta">
+												<li><i class="ri-user-3-line"></i> 性别：{{ p.gender || '-' }}</li>
+												<li><i class="ri-briefcase-2-line"></i> 公司：{{ p.company || '-' }}</li>
+												<li><i class="ri-briefcase-2-line"></i> 职位：{{ p.title || '-' }}</li>
+												<li v-if="p.mobile"><i class="ri-smartphone-line"></i> 手机：{{ p.mobile }}
+												</li>
+												<template v-if="p.needHotel==='yes'">
+													<li><i class="ri-hotel-bed-line"></i> 需要住宿</li>
+													<li v-if="p.hotelPlan"><i class="ri-home-4-line"></i>
+														入住房型：{{ hotelPlanLabel(p.hotelPlan) }}</li>
+													<li v-if="p.stayNights && p.stayNights.length"><i
+															class="ri-calendar-line"></i>
+														入住日期：{{ humanizeNights(p.stayNights) }}</li>
+												</template>
+												<li v-if="p.carPlate"><i class="ri-car-line"></i> 车牌：{{ p.carPlate }}
+												</li>
+												<li><i class="ri-information-line"></i> 状态：{{ statusLabel(p.status) }}
+												</li>
+											</ul>
+										</div>
+									</div>
+								</div>
+							</template>
+
+
+
+						</div>
+					</transition>
+				</div>
+
+				<!-- 场次选择弹窗（沿用你现有 class） -->
+				<div class="modal-mask" v-if="showSessionPicker" @click.self="closeSessionPicker">
+					<div class="modal">
+						<div class="session-text">请选择会议场次</div>
+						<div class="session-list">
+							<button class="session-btn" @click="setSession('JN')">济南｜2025年9月16日</button>
+							<button class="session-btn" @click="setSession('SH')">上海｜2025年9月22日</button>
+						</div>
+						<button class="modal-cancel" @click="closeSessionPicker">取消</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<script>
+			const App = {
+				data() {
+					return {
+						// 场次
+						sessions: {
+							JN: {
+								key: 'JN',
+								city: '济南',
+								date: '2025年9月16日'
+							},
+							SH: {
+								key: 'SH',
+								city: '上海',
+								date: '2025年9月22日'
+							}
+						},
+						selectedSessionKey: null,
+						showSessionPicker: false,
+
+						// 路由
+						pagesOrder: ['home', 'Scan', 'Result', 'Share', 'Audit', ],
+						currentPage: 'home',
+						lastPage: 'home',
+						transitionName: 'slide-left',
+
+						// 扫描结果
+						scanResult: '',
+
+						// 扫码内部状态
+						_scan: {
+							stream: null,
+							rafId: 0,
+							detector: null,
+							zxingReader: null,
+							using: 'none' // wechat | detector | zxing | none
+						},
+
+
+						verify: {
+							loading: false,
+							status: 'idle', // idle | loading | success | fail
+							attendees: []
+						},
+
+
+
+
+						auditList: [],
+						// 硬编码的模拟数据（API未定时使用）
+						mockAuditData: [],
+
+						shareLink: 'https://bochu.com',
+						qrUrl: '',
+
+					};
+				},
+
+				computed: {
+					selectedSession() {
+						return this.sessions[this.selectedSessionKey] || null;
+					},
+					pendingCount() {
+						return this.auditList.filter(p => p.status === 'pending').length;
+					}
+				},
+
+				watch: {
+					async currentPage(v) {
+						if (v === 'Scan') {
+							await this.$nextTick(); // 等 DOM 渲染出 <video>
+							this.startScan();
+						} else {
+							this.stopScan();
+						}
+					}
+				},
+
+				methods: {
+					/* ---------------- 路由与场次 ---------------- */
+					pageIndex(p) {
+						return this.pagesOrder.indexOf(p);
+					},
+					setTransitionByDirection(from, to) {
+						const fi = this.pageIndex(from),
+							ti = this.pageIndex(to);
+						this.transitionName = ti > fi ? 'slide-left' : 'slide-right';
+					},
+					go(page) {
+						if (!this.pagesOrder.includes(page)) return;
+						this.setTransitionByDirection(this.currentPage, page);
+						setTimeout(() => {
+							this.lastPage = this.currentPage;
+							this.currentPage = page;
+							if (location.hash !== '#' + page) history.pushState(null, '', '#' + page);
+							window.scrollTo({
+								top: 0,
+								behavior: 'instant'
+							});
+						}, 100);
+					},
+
+					openSessionPicker() {
+						setTimeout(() => {
+							this.showSessionPicker = true;
+						}, 100);
+					},
+					closeSessionPicker() {
+						setTimeout(() => {
+							this.showSessionPicker = false;
+						}, 100);
+					},
+					setSession(key) {
+						setTimeout(() => {
+							if (!this.sessions[key]) return;
+							this.selectedSessionKey = key;
+							localStorage.setItem('exh_session_key', key);
+							this.showSessionPicker = false;
+							if (this.currentPage !== 'home') this.go('home');
+						}, 100);
+					},
+
+					enterScan() {
+						// 必须有场次
+						const key = localStorage.getItem('exh_session_key');
+						if (!key || !this.sessions[key]) {
+							alert('请先选择会议场次');
+							this.openSessionPicker();
+							return;
+						}
+						this.go('Scan');
+					},
+
+					enterShare() {
+						// 必须有场次
+						const key = localStorage.getItem('exh_session_key');
+						if (!key || !this.sessions[key]) {
+							alert('请先选择会议场次');
+							this.openSessionPicker();
+							return;
+						}
+						this.go('Share');
+					},
+
+					enterAudit() {
+						// 必须有场次
+						const key = localStorage.getItem('exh_session_key');
+						if (!key || !this.sessions[key]) {
+							alert('请先选择会议场次');
+							this.openSessionPicker();
+							return;
+						}
+						this.GetAuditListNeeded();
+						this.go('Audit');
+					},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+					// 审核逻辑
+
+
+
+					async getAuditListNeeded() {
+						// TODO: 当API确定后，替换为实际API调用，例如：
+						// const response = await fetch('/api/audit/list?sessionKey=' + localStorage.getItem('exh_session_key'));
+						// const data = await response.json();
+						// this.auditList = data.map(item => ({ ...item, status: item.status || 'pending' })); // 假设API返回数据包含status，或默认pending
+
+
+						const mockAuditData = [{
+								id: 1,
+								name: '张伟',
+								gender: '男',
+								company: '科技公司A',
+								title: '项目经理',
+								mobile: '13812345678',
+								needHotel: 'yes',
+								hotelPlan: 'single',
+								stayNights: ['2023-10-01', '2023-10-02'],
+								carPlate: '京A12345',
+								status: 'pending' // 待审核
+							},
+							{
+								id: 2,
+								name: '李娜',
+								gender: '女',
+								company: '企业B',
+								title: '工程师',
+								mobile: '13987654321',
+								needHotel: 'no',
+								carPlate: '',
+								status: 'pending' // 待审核
+							},
+							{
+								id: 3,
+								name: '王芳',
+								gender: '女',
+								company: '公司C',
+								title: '总监',
+								mobile: '13711112222',
+								needHotel: 'yes',
+								hotelPlan: 'double',
+								stayNights: ['2023-10-03'],
+								carPlate: '沪B67890',
+								status: 'approved' // 已通过
+							},
+							{
+								id: 4,
+								name: '刘明',
+								gender: '男',
+								company: '集团D',
+								title: '开发员',
+								mobile: '13633334444',
+								needHotel: 'no',
+								status: 'rejected' // 已拒绝
+							},
+							{
+								id: 5,
+								name: '陈静',
+								gender: '女',
+								company: ' startup E',
+								title: '设计师',
+								mobile: '13555556666',
+								needHotel: 'yes',
+								hotelPlan: 'suite',
+								stayNights: ['2023-10-01', '2023-10-02', '2023-10-03'],
+								carPlate: '粤C11223',
+								status: 'pending' // 待审核
+							}
+						];
+						// 使用硬编码数据
+						this.auditList = mockAuditData.map(item => ({
+							...item
+						})); // 深拷贝避免直接修改常量
+						this.sortAuditList();
+					},
+					sortAuditList() {
+						// 待审核的放在前面（假设按ID或原顺序保持）
+						const pending = this.auditList.filter(p => p.status === 'pending');
+						// 非待审核的（approved和rejected）按姓名首字母排序
+						const nonPending = this.auditList
+							.filter(p => p.status !== 'pending')
+							.sort((a, b) => {
+								const nameA = a.name.charAt(0).toLowerCase();
+								const nameB = b.name.charAt(0).toLowerCase();
+								return nameA.localeCompare(nameB, 'zh'); // 支持中文排序
+							});
+						// 组合：pending在前，sorted nonPending在后
+						this.auditList = [...pending, ...nonPending];
+					},
+					async approveAudit(id) {
+						const person = this.auditList.find(p => p.id === id);
+						if (!person || person.status === 'approved') return;
+
+						// TODO: 实时联系服务器，例如：
+						// await fetch('/api/audit/approve', { method: 'POST', body: JSON.stringify({ id, sessionKey: localStorage.getItem('exh_session_key') }) });
+
+						// 更新本地状态
+						person.status = 'approved';
+						// 排序 
+						// this.sortAuditList();
+					},
+					async rejectAudit(id) {
+						const person = this.auditList.find(p => p.id === id);
+						if (!person || person.status !== 'pending') return;
+
+						// TODO: 实时联系服务器，例如：
+						// await fetch('/api/audit/reject', { method: 'POST', body: JSON.stringify({ id, sessionKey: localStorage.getItem('exh_session_key') }) });
+
+						// 更新本地状态
+						person.status = 'rejected';
+						// 排序 
+						//this.sortAuditList();
+					},
+					humanizeNights(nights) {
+						// 假设nights是数组，转换为可读字符串
+						return nights.join(' 至 ');
+					},
+					hotelPlanLabel(plan) {
+						// 假设映射
+						const labels = {
+							single: '单人间',
+							double: '双人间',
+							suite: '套房'
+						};
+						return labels[plan] || plan;
+					},
+					statusLabel(status) {
+						const labels = {
+							pending: '待审核',
+							approved: '已通过',
+							rejected: '已拒绝'
+						};
+						return labels[status] || status;
+					},
+					enterAudit() {
+						// 必须有场次
+						const key = localStorage.getItem('exh_session_key');
+						if (!key || !this.sessions[key]) {
+							alert('请先选择会议场次');
+							this.openSessionPicker();
+							return;
+						}
+						this.getAuditListNeeded(); // 在进入时加载数据
+						this.go('Audit');
+					},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+					// 分享
+					async initShareQR() {
+						try {
+							// Use the shareLink directly for QR code
+							const qrData = this.shareLink;
+
+							// Clear any existing QR code
+							this.qrUrl = '';
+
+							// Wait for QR code container
+							const el = await this._waitForEl('#qrcode-box', 10, 50);
+							if (!el) {
+								console.error('二维码容器未找到：#qrcode-box');
+								return;
+							}
+
+							// Clear old content and generate QR code
+							el.innerHTML = '';
+							const size = Math.min(el.clientWidth || 200, el.clientHeight || 200) || 200;
+
+							// Generate QR code
+							new QRCode(el, {
+								text: qrData,
+								width: size,
+								height: size,
+								correctLevel: QRCode.CorrectLevel.H
+							});
+						} catch (e) {
+							console.error('二维码生成失败：', e);
+							// alert('二维码加载失败，请稍后重试');
+						}
+					},
+					async _waitForEl(selector, maxAttempts, delay) {
+						for (let i = 0; i < maxAttempts; i++) {
+							const el = document.querySelector(selector);
+							if (el) return el;
+							await new Promise(resolve => setTimeout(resolve, delay));
+						}
+						return null;
+					},
+					copyLink() {
+						navigator.clipboard.writeText(this.shareLink)
+							.then(() => {
+								alert('链接已复制到剪贴板！');
+							})
+							.catch(err => {
+								console.error('复制失败：', err);
+								alert('复制失败，请手动复制链接');
+							});
+					},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+					/* ---------------- 企业微信授权（示例占位） ---------------- */
+					async initWeComAuth() {
+						// 这里通常需要你的后台注入签名并调用 wx.config / wx.agentConfig
+						// 下面仅做示例提示与本地占位
+						try {
+							// wx.config({...}) // 你的后台返回的签名参数
+							// wx.ready(()=>{ console.log('wx ready'); });
+							// wx.error(()=>{ console.log('wx error'); });
+							// 如果你的业务需要先拿到企业用户身份：
+							// window.location.href = 'https://open.work.weixin.qq.com/wwopen/sso/qrConnect?...';
+							// 这里只占位一下：
+							// alert('已调用企业微信授权（示例占位），请接入正式 wx.config 与 OAuth 流程');
+						} catch (e) {
+							console.warn('WeCom auth init failed', e);
+						}
+					},
+
+					/* ---------------- 扫码：优先微信，后原生，最后 ZXing ---------------- */
+					async startScan() {
+						this.stopScan(); // 保底清理
+
+						if (window.wx && typeof wx.scanQRCode === 'function') {
+							this._scan.using = 'wechat';
+							let tried = false;
+
+							const callWxScan = () => {
+								tried = true;
+								wx.scanQRCode({
+									needResult: 1,
+									scanType: ['qrCode', 'barCode'],
+									success: (res) => {
+										const str = res.resultStr || res.result || '';
+										this.onScanFound(str);
+									},
+									fail: () => {
+										this.startNativeScan();
+									}
+								});
+							};
+
+							try {
+								// 只有在 ready 后才调
+								if (typeof wx.ready === 'function') {
+									wx.ready(callWxScan);
+									wx.error(() => this.startNativeScan());
+									// 如果 800ms 内还没触发 ready，就走原生（防卡死）
+									setTimeout(() => {
+										if (!tried) this.startNativeScan();
+									}, 800);
+									return;
+								} else {
+									// 没有 ready，就直接尝试一次；报错则走原生
+									callWxScan();
+									return;
+								}
+							} catch (_) {
+								// 未 ready 或报错，走原生
+							}
+						}
+
+						// 2) 原生
+						this.startNativeScan();
+					},
+
+					async startNativeScan() {
+						// ...
+						const ensureVideoEl = async () => {
+							let video = document.getElementById('scan-video');
+							if (!video) {
+								await this.$nextTick();
+								video = document.getElementById('scan-video');
+							}
+							return video;
+						};
+
+						// A. BarcodeDetector
+						if ('BarcodeDetector' in window) {
+							try {
+								this._scan.using = 'detector';
+								this._scan.detector = new window.BarcodeDetector({
+									formats: [
+										'qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'upc_a',
+										'upc_e', 'itf', 'codabar', 'data_matrix', 'aztec', 'pdf417'
+									]
+								});
+								const stream = await navigator.mediaDevices.getUserMedia({
+									video: {
+										facingMode: {
+											ideal: 'environment'
+										}
+									},
+									audio: false
+								});
+								this._scan.stream = stream;
+
+								const video = await ensureVideoEl();
+								video.setAttribute('playsinline', '');
+								video.muted = true; // iOS 自动播放策略
+								video.srcObject = stream;
+								await video.play();
+
+								const loop = async () => {
+									if (!this._scan.stream) return;
+									try {
+										const results = await this._scan.detector.detect(video);
+										if (results && results.length) {
+											return this.onScanFound(results[0].rawValue || '');
+										}
+									} catch (e) {}
+									this._scan.rafId = requestAnimationFrame(loop);
+								};
+								loop();
+								return;
+							} catch (e) {
+								// 继续用 ZXing
+							}
+						}
+
+						// B. ZXing 兜底
+						if (window.ZXing && ZXing.BrowserMultiFormatReader) {
+							this._scan.using = 'zxing';
+							const reader = new ZXing.BrowserMultiFormatReader();
+							this._scan.zxingReader = reader;
+							try {
+								await reader.decodeFromVideoDevice({
+										facingMode: {
+											ideal: 'environment'
+										}
+									},
+									'scan-video',
+									(result, err, controls) => {
+										if (result && result.getText) {
+											this.onScanFound(result.getText());
+											controls.stop();
+										}
+									}
+								);
+								return;
+							} catch (e) {}
+						}
+
+						alert('当前环境不支持扫码或没有摄像头权限');
+					},
+
+					onScanFound(text) {
+						this.stopScan();
+						this.scanResult = text || '';
+						this.go('Result');
+						this.fetchVerifyByQR(text); // ← 扫到码就触发拉取
+					},
+
+
+					stopScan() {
+						if (this._scan.rafId) {
+							cancelAnimationFrame(this._scan.rafId);
+							this._scan.rafId = 0;
+						}
+						if (this._scan.zxingReader) {
+							try {
+								this._scan.zxingReader.reset();
+							} catch (_) {}
+							this._scan.zxingReader = null;
+						}
+						if (this._scan.stream) {
+							this._scan.stream.getTracks().forEach(t => t.stop());
+							this._scan.stream = null;
+						}
+						this._scan.detector = null;
+						this._scan.using = 'none';
+
+						const video = document.getElementById('scan-video');
+						if (video) {
+							video.pause?.();
+							video.srcObject = null;
+							video.removeAttribute('src');
+						}
+					},
+
+					parseQRString(qrStr) {
+						// 将来按后端协议解析。当前兼容“URL?token=xxx”与“纯字符串”
+						try {
+							const url = new URL(qrStr);
+							return {
+								token: url.searchParams.get('token') || qrStr
+							};
+						} catch (_) {
+							return {
+								token: qrStr
+							};
+						}
+					},
+
+					mockFetchVerify(params) {
+						// 你给的演示数据：可按 token 做分支
+						const demo = [{
+							"id": 1755318337127,
+							"name": "ABC",
+							"gender": "男",
+							"mobile": "15852713098",
+							"company": "aaaaaaaaaaaaaaaa",
+							"title": "aaaaaaaaaaaaa",
+							"needHotel": "yes",
+							"hotelPlan": "single",
+							"stayNights": ["9.21晚", "9.22晚"],
+							"carPlate": "aaaaaa"
+						}, {
+							"id": 1755318351131,
+							"name": "aaaaaaaaaaaaaa",
+							"gender": "女",
+							"mobile": "15852713098",
+							"company": "aaaaaaaaaaa",
+							"title": "aaaaaaaaaaa",
+							"needHotel": "no",
+							"hotelPlan": "",
+							"stayNights": [],
+							"carPlate": "aaaaaaaaa"
+						}, {
+							"id": 1755318361752,
+							"name": "aaaaaaaaaaaaa",
+							"gender": "男",
+							"mobile": "15852713098",
+							"company": "aaaaaaaaaaaaaaaa",
+							"title": "aaaaaaaaaaaaaaa",
+							"needHotel": "yes",
+							"hotelPlan": "twin",
+							"stayNights": ["9.22晚", "9.21晚"],
+							"carPlate": ""
+						}, {
+							"id": 1755318375678,
+							"name": "aaaaaaaaaaaaa",
+							"gender": "男",
+							"mobile": "15852713098",
+							"company": "aaaaaaaaaaa",
+							"title": "aaaaaaaaaaaaaa",
+							"needHotel": "yes",
+							"hotelPlan": "self",
+							"stayNights": ["9.22晚"]
+						}];
+						return new Promise(resolve => {
+							setTimeout(() => resolve({
+								ok: true,
+								data: demo
+							}), 420);
+						});
+					},
+
+					async fetchVerifyByQR(qrStr) {
+						this.verify.loading = true;
+						this.verify.status = 'loading';
+						this.verify.attendees = [];
+
+						const params = this.parseQRString(qrStr);
+
+						try {
+							// ==== 未来替换为真实接口 ====
+							// const res = await fetch('/api/verify', {
+							//   method:'POST',
+							//   headers:{'Content-Type':'application/json'},
+							//   body: JSON.stringify(params)
+							// });
+							// const json = await res.json();
+							// if (!json.ok) throw new Error(json.msg || 'verify fail');
+							// const list = Array.isArray(json.data) ? json.data : [];
+
+							// 现在用本地模拟
+							const json = await this.mockFetchVerify(params);
+							const list = Array.isArray(json.data) ? json.data : [];
+
+							this.verify.attendees = list;
+							this.verify.status = list.length ? 'success' : 'fail';
+						} catch (e) {
+							console.warn('verify failed', e);
+							this.verify.attendees = [];
+							this.verify.status = 'fail';
+						} finally {
+							this.verify.loading = false;
+						}
+					},
+
+
+					/* ---------------- 工具 ---------------- */
+					handleHashChange() {
+						const target = (location.hash || '#home').slice(1);
+						const page = this.pagesOrder.includes(target) ? target : 'home';
+						if (page === this.currentPage) return;
+						this.setTransitionByDirection(this.currentPage, page);
+						this.lastPage = this.currentPage;
+						this.currentPage = page;
+						window.scrollTo({
+							top: 0,
+							behavior: 'instant'
+						});
+					},
+
+					hotelPlanLabel(plan) {
+						const map = {
+							twin: '大床房',
+							king: '大床房',
+							double: '双床房'
+						};
+						return map[plan] || plan || '-';
+					},
+					humanizeNights(arr) {
+						return Array.isArray(arr) ? arr.join('、') : '-';
+					},
+
+				},
+
+				mounted() {
+					// 场次初始化
+					const cache = localStorage.getItem('exh_session_key');
+					if (cache && this.sessions[cache]) this.selectedSessionKey = cache;
+					else this.showSessionPicker = true;
+
+					// 路由初始化
+					this.handleHashChange();
+					window.addEventListener('hashchange', this.handleHashChange);
+
+					// 企业微信授权初始化（占位）
+					this.initWeComAuth();
+
+					this.initShareQR();
+				},
+
+				beforeUnmount() {
+					window.removeEventListener('hashchange', this.handleHashChange);
+					this.stopScan();
+				}
+			};
+
+			Vue.createApp(App).mount('#app');
+		</script>
+	</body>
+</html>

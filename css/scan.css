@@ -1,0 +1,701 @@
+/* ===== 扫码页 ===== */
+
+/* 整页黑底（相机预览在下层） */
+#page-scan {
+	width: 100%;
+	height: 100%;
+	min-height: 100vh;
+	background-color: #000;
+}
+
+.page-head {
+	position: absolute;
+	top: 0;
+	z-index: 9999;
+}
+
+.page-head-back-btn {
+	color: #000;
+}
+
+/* 视频全屏铺底 */
+.scan-cam {
+	position: relative;
+	width: 100%;
+	height: 100vh;
+	overflow: hidden;
+}
+
+.scan-cam>video {
+	position: absolute;
+	inset: 0;
+	width: 100%;
+	height: 100%;
+	object-fit: cover;
+}
+
+/* 遮罩容器 */
+.scan-overlay {
+	position: absolute;
+	inset: 0;
+	z-index: 2;
+}
+
+/* 遮罩块：半透明黑 */
+.scan-overlay .mask {
+	position: absolute;
+	background: rgba(0, 0, 0, .75);
+}
+
+/* 中间扫描框尺寸（按屏幕宽度 72%） */
+.scan-frame {
+	position: absolute;
+	left: 50%;
+	top: 50%;
+	width: 72vw;
+	aspect-ratio: 1/1;
+	transform: translate(-50%, -50%);
+	z-index: 3;
+}
+
+/* 根据 scan-frame 的位置裁掉四边 */
+.scan-overlay .mask.top {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 50%;
+	height: calc(50% - (72vw / 2));
+}
+
+.scan-overlay .mask.bottom {
+	position: absolute;
+	left: 0;
+	right: 0;
+	top: calc(50% + 36vw);
+	height: calc(50% - (72vw / 2));
+}
+
+.scan-overlay .mask.left {
+	position: absolute;
+	top: calc(50% - (72vw / 2));
+	left: 0;
+	width: calc(50% - (72vw / 2));
+	height: calc(50% - (72vw / 2));
+	height: 72vw;
+}
+
+.scan-overlay .mask.right {
+	position: absolute;
+	top: calc(50% - (72vw / 2));
+	right: 0;
+	width: calc(50% - (72vw / 2));
+	height: calc(50% - (72vw / 2));
+	height: 72vw;
+}
+
+/* 中间扫描框边框与角标 */
+.scan-box {
+	position: absolute;
+	inset: 0;
+	border: 1px solid rgba(0, 174, 255, .25);
+	box-sizing: border-box;
+}
+
+.scan-corner {
+	position: absolute;
+	width: 28px;
+	height: 28px;
+}
+
+.scan-corner.tl {
+	left: 0;
+	top: 0;
+	border-left: 4px solid #1a90ff;
+	border-top: 4px solid #1a90ff;
+}
+
+.scan-corner.tr {
+	right: 0;
+	top: 0;
+	border-right: 4px solid #1a90ff;
+	border-top: 4px solid #1a90ff;
+}
+
+.scan-corner.bl {
+	left: 0;
+	bottom: 0;
+	border-left: 4px solid #1a90ff;
+	border-bottom: 4px solid #1a90ff;
+}
+
+.scan-corner.br {
+	right: 0;
+	bottom: 0;
+	border-right: 4px solid #1a90ff;
+	border-bottom: 4px solid #1a90ff;
+}
+
+/* 扫描线动画 */
+.scan-line {
+	position: absolute;
+	left: 6%;
+	right: 6%;
+	height: 2px;
+	background: #1a90ff;
+	animation: scanSlide 2.2s ease-in-out infinite;
+}
+
+@keyframes scanSlide {
+	0% {
+		top: 10%;
+	}
+
+	50% {
+		top: 88%;
+	}
+
+	100% {
+		top: 10%;
+	}
+}
+
+
+/* 底部提示文案 */
+.scan-hint {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 110px;
+	text-align: center;
+	color: #fff;
+	opacity: .9;
+	font-size: 14px;
+	user-select: none;
+}
+
+/* 底部按钮区 */
+.scan-footer {
+	position: absolute;
+	left: 0;
+	right: 0;
+	bottom: 40px;
+	text-align: center;
+}
+
+.scan-footer .submit-btn {
+	width: 82%;
+}
+
+.scan-footer .scan-link {
+	display: inline-block;
+	margin-top: 12px;
+	color: #4aa3ff;
+	text-decoration: none;
+	font-size: 14px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#page-Result {
+	width: 100%;
+	min-height: 100vh;
+}
+
+.result-card {
+	width: calc(100% - 36px);
+	position: relative;
+	top: 80px;
+	left: 18px;
+	height: calc(100vh - 156px);
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	border-radius: 10px;
+	background: #fff;
+	box-shadow: 0 4px 18px rgba(0, 0, 0, .08);
+}
+
+.result-badge {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	background: #eef7ee;
+	color: #2ca143;
+	border-radius: 20px;
+	padding: 6px 10px;
+	font-size: 13px;
+	font-weight: 600;
+	margin-top: 16px;
+	margin-left: 16px;
+}
+
+.result-badge.fail {
+	background: #ffecec;
+	color: #e24a4a;
+}
+
+.result-title {
+	margin: 12px 0 8px;
+	font-weight: 700;
+	color: #20262e;
+	margin-left: 16px;
+	padding-bottom: 10px;
+}
+
+.result-empty {
+	padding: 12px 0 6px;
+	color: #6b7280;
+	text-align: left;
+	margin-left: 16px;
+}
+
+.result-item {
+	padding: 2px 16px 8px 16px;
+}
+
+.result-name {
+	font-weight: 700;
+	color: #111;
+	margin-bottom: 0px;
+}
+
+.result-item--hotel .result-name::after {
+	content: "  需要住宿";
+	color: #2ca143;
+	font-weight: 600;
+	font-size: 12px;
+}
+
+.result-meta {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+}
+
+.result-meta li {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: #4a5568;
+	font-size: 14px;
+	line-height: 22px;
+}
+
+.result-meta i {
+	font-size: 16px;
+	color: #8aa1c2;
+}
+
+.result-divider {
+	height: 1px;
+	background: #eff2f6;
+	margin: 10px 0;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* 以下是Share系列页面 */
+#page-Share {
+	width: 100%;
+	height: 100%;
+}
+
+/* 卡片本体 */
+.share-card {
+	position: absolute;
+	top: 160px;
+	width: calc(100% - 40px);
+	left: 20px;
+	height: calc(100% - 300px);
+	background: #fff;
+	color: #000;
+	border-radius: 8px;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, .1);
+	font-size: 14px;
+	line-height: 1.6;
+	border: 1px solid #E6EAF2;
+	border-radius: 10px;
+}
+
+/* 文案 */
+.share-greet {
+	height: 60px;
+	width: 100%;
+	font-weight: 500;
+	font-size: 16px;
+	margin: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-bottom: 1px solid #eee;
+}
+
+.share-text {
+	margin: 0;
+	height: 40px;
+	padding-left: 0px;
+	font-size: 15px;
+}
+
+.share-link-wrap {
+	position: absolute;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	width: calc(100% - 40px);
+	margin-left: 20px;
+	bottom: 20px;
+}
+
+.share-link-wrap .input-row {
+	display: -webkit-flex;
+	display: flex;
+	align-items: center;
+	border-bottom: 1px solid #eee;
+	padding: 16px 0;
+	margin-top: 2px;
+	position: relative;
+	width: 100%;
+	box-sizing: border-box;
+	margin-bottom: 16px;
+}
+
+.share-link-wrap input {
+	-webkit-appearance: none;
+	-moz-appearance: none;
+	appearance: none;
+	flex: 1 0 auto;
+	max-width: calc(100% - 120px);
+	border: none;
+	outline: none;
+	font-size: 15px;
+	box-sizing: border-box;
+}
+
+.share-link-wrap button {
+	width: 100%;
+	height: 44px;
+	border-radius: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #192E64;
+	color: #fff;
+	border: none;
+	font-size: 16px;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+	transition: all 0.1s ease;
+}
+
+.share-link-wrap button:hover {
+	background: #1f3a80;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+}
+
+.share-link-wrap button:active {
+	background: #14264b;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+	transform: scale(.98);
+}
+
+/* 二维码提示 */
+.share-qr-tip {
+	margin: 8px 0 12px;
+	text-align: center;
+	color: #193A79;
+	/* 深蓝提示 */
+	font-size: 14px;
+}
+
+/* 二维码容器与占位 */
+.share-qr-wrap {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	justify-content: center;
+	align-items: center;
+	height: calc(100vh - 558px);
+}
+
+.share-qr-box {
+	width: 180px;
+	height: 180px;
+	max-width: 220px;
+	max-height: 220px;
+	border: 1px solid #cfcfcf;
+	border-radius: 6px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	overflow: hidden;
+	background: #fff;
+	padding: 12px;
+}
+
+.share-qr-box img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+.share-qr-placeholder {
+	width: calc(100% - 10px);
+	height: calc(100% - 10px);
+	border: 1px dashed #bdbdbd;
+	border-radius: 4px;
+}
+
+/* 底部返回按钮容器（与你现有样式兼容） */
+.btn-bottom {
+	width: 100%;
+	padding: 0 20px;
+	box-sizing: border-box;
+	margin: 24px 0 16px;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#page-Audit {
+	width: 100%;
+	min-height: 100vh;
+}
+
+.Audit-info {
+	position: relative;
+	width: calc(100% - 32px);
+	height: 60px;
+	background: #f9f9fb;
+	margin-left: 16px;
+	border-radius: 10px;
+	display: flex;
+	flex-direction: column;
+	top: 80px;
+}
+
+.Audit-tip {
+	height: 40px;
+	font-size: 15px;
+	color: #000000;
+	font-weight: 400;
+	display: flex;
+	align-items: center;
+	padding-left: 20px;
+	padding-top: 8px;
+	margin: 0;
+}
+
+.Audit-card {
+	position: relative;
+	width: calc(100% - 32px);
+	height: calc(100vh - 184px);
+	overflow-y: scroll;
+	background-color: #fcfcfc;
+	margin-left: 16px;
+	top: 100px;
+	border-radius: 10px;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
+}
+
+.Audit-empty {
+	text-align: center;
+	color: #999;
+	padding: 20px 0;
+}
+
+.Audit-item {
+	background: #fff;
+	border-radius: 10px;
+	margin: 16px;
+	padding: 12px;
+	/* box-shadow: 0 2px 6px rgba(0, 0, 0, .08); */
+	transition: all 0.3s ease;
+	position: relative;
+	border: 1px solid #dcdcdc;
+}
+
+.Audit-status {
+	position: absolute;
+	top: 40px;
+	right: 40px;
+	height: 80px;
+	width: 80px;
+}
+
+.Audit-status img {
+	height: 100%;
+	width: 100%;
+}
+
+
+.Audit-head {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	margin-bottom: 8px;
+	height: 32px;
+	align-items: center;
+}
+
+.Audit-name {
+	font-size: 16px;
+	font-weight: 600;
+	color: #333;
+}
+
+.Audit-actions {
+	display: flex;
+	gap: 8px;
+}
+
+.Audit-icon {
+	width: 32px;
+	height: 32px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+	border: none;
+	color: #fff;
+	font-size: 18px;
+	-webkit-tap-highlight-color: transparent;
+	transition: all 0.1s ease;
+}
+
+.Audit-icon.pass {
+	background: #28a745;
+}
+
+.Audit-icon.pass:hover {
+	background: #218838;
+}
+
+.Audit-icon.pass:active {
+	transform: scale(.9);
+}
+
+.Audit-icon.reject {
+	background: #dc3545;
+}
+
+.Audit-icon.reject:hover {
+	background: #c82333;
+}
+
+.Audit-icon.reject:active {
+	transform: scale(.9);
+}
+
+.Audit-meta {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	font-size: 14px;
+	color: #555;
+}
+
+.Audit-meta li {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-bottom: 4px;
+}
+
+.Audit-meta i {
+	color: #192E64;
+	font-size: 16px;
+}
+
+.Audit-btn-bottom {
+	position: absolute;
+	bottom: 0;
+	width: calc(100% - 32px);
+	padding: 10px 16px 16px;
+}
+
+.Audit-submit-btn {
+	width: 100%;
+	height: 44px;
+	border-radius: 22px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: #192E64;
+	color: #fff;
+	border: none;
+	font-size: 16px;
+	cursor: pointer;
+	-webkit-tap-highlight-color: transparent;
+}
+
+.Audit-submit-btn:hover {
+	background: #1f3a80;
+	box-shadow: 0 2px 6px rgba(0, 0, 0, .2);
+}
+
+.Audit-submit-btn:active {
+	background: #14264b;
+	box-shadow: 0 1px 3px rgba(0, 0, 0, .2);
+	transform: scale(.98);
+}
+
+.Audit-approved {
+	color: rgba(0, 0, 0, 0.5);
+	background-color: #ebffeb;
+	pointer-events: none;
+	/* 禁用交互，但由于按钮v-if已隐藏，可选 */
+}
+
+.Audit-rejected {
+	color: rgba(0, 0, 0, 0.5);
+	background-color: #f8d7da;
+	/* 轻微红色背景以区分 */
+}
+
+.Audit-approved .Audit-name,
+.Audit-rejected .Audit-name {
+	color: #666;
+}

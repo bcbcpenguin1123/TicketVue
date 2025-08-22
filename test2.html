@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OBJ 一键UV同步烘焙（UV改动 → 纹理跟着改）</title>
+  <style>
+    html, body { height: 100%; margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; }
+    #app { display: grid; grid-template-columns: 320px 1fr; grid-template-rows: 1fr; height: 100%; }
+    .panel { border-right: 1px solid #e5e7eb; padding: 12px 14px; overflow: auto; }
+    .panel h2 { font-size: 16px; margin: 12px 0 6px; }
+    .panel .hint { color: #6b7280; font-size: 12px; line-height: 1.4; }
+    .row { margin: 8px 0; display: flex; align-items: center; gap: 8px; }
+    .row label { width: 92px; font-size: 13px; color: #374151; }
+    input[type="file"] { width: 100%; }
+    input[type="number"], select { width: 100%; padding: 6px 8px; border:1px solid #d1d5db; border-radius: 8px; }
+    input[type="range"] { width: 100%; }
+    button { cursor: pointer; border: none; padding: 10px 12px; border-radius: 10px; background: #111827; color: #fff; font-weight: 600; }
+    button.secondary { background: #374151; }
+    button.ghost { background: #e5e7eb; color: #111827; }
+    .btns { display:flex; gap:8px; flex-wrap: wrap; }
+    .drop { padding: 10px; border: 1px dashed #9ca3af; border-radius: 12px; font-size: 13px; color:#6b7280; }
+    .drop.highlight { background:#f3f4f6; }
+    #viewer { position: relative; }
+    #canvas3d { width: 100%; height: 100%; display: block; background: #0b1020; }
+    .toast { position: absolute; left: 12px; bottom: 12px; background: rgba(0,0,0,.6); color: #fff; padding: 8px 10px; border-radius: 8px; font-size: 12px; }
+    .kv { font-size:12px; color:#4b5563; }
+    .kv b { color:#111827; }
+    .divider { height:1px; background:#e5e7eb; margin:12px 0; }
+    .muted { color:#6b7280; font-size:12px; }
+    a.dl { display:inline-block; margin-top:8px; font-size:13px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="panel">
+    <h2>加载模型 & 贴图</h2>
+    <div class="drop" id="drop">
+      拖拽进来：<b>OBJ</b>（必需） + <b>贴图</b>（JPG/PNG，建议） + <b>MTL</b>（可选）。<br/>
+      或使用下方文件选择。
+    </div>
+    <div class="row"><label>OBJ 文件</label><input id="objFile" type="file" accept=".obj" /></div>
+    <div class="row"><label>MTL 文件</label><input id="mtlFile" type="file" accept=".mtl" /></div>
+    <div class="row"><label>贴图文件</label><input id="texFile" type="file" accept="image/*" /></div>
+    <div class="row"><label>贴图分辨率</label>
+      <select id="bakeSize">
+        <option value="1024">1024 × 1024</option>
+        <option value="2048">2048 × 2048</option>
+        <option value="4096">4096 × 4096</option>
+        <option value="512">512 × 512</option>
+      </select>
+    </div>
+    <div class="divider"></div>
+
+    <h2>UV 全局变换（预览）</h2>
+    <div class="row"><label>U 偏移</label><input id="uOffset" type="range" min="-1" max="1" step="0.001" value="0" /></div>
+    <div class="row"><label>V 偏移</label><input id="vOffset" type="range" min="-1" max="1" step="0.001" value="0" /></div>
+    <div class="row"><label>U 缩放</label><input id="uScale" type="range" min="0.1" max="3" step="0.001" value="1" /></div>
+    <div class="row"><label>V 缩放</label><input id="vScale" type="range" min="0.1" max="3" step="0.001" value="1" /></div>
+    <div class="row"><label>旋转（°）</label><input id="rotDeg" type="range" min="-180" max="180" step="0.1" value="0" /></div>
+    <div class="btns">
+      <button id="applyUV">应用变换</button>
+      <button id="resetUV" class="secondary">重置UV</button>
+    </div>
+
+    <div class="divider"></div>
+
+    <h2>一键烘焙（让纹理跟 UV 一起改）</h2>
+    <div class="btns">
+      <button id="bake">⚡ 一键烘焙并替换材质</button>
+      <button id="download" class="ghost">下载烘焙纹理 PNG</button>
+    </div>
+    <div class="muted" style="margin-top:8px;">
+      说明：烘焙会把 <b>旧UV下的贴图</b> 重新投射到 <b>当前UV</b>，
+      使渲染视觉保持不变，但生成<b>随新UV扭曲后的贴图</b>。
+    </div>
+
+    <div class="divider"></div>
+    <div class="kv">当前状态：<b id="status">未加载</b></div>
+    <div class="kv">网格数：<b id="meshCount">0</b> ，顶点数：<b id="vertCount">0</b></div>
+    <div class="kv">贴图：<b id="texInfo">无</b></div>
+    <a id="dlLink" class="dl" href="#" download="baked.png" style="display:none;">下载链接（若未自动弹出下载）</a>
+
+    <p class="hint">
+      小贴士：本页支持单一漫反射贴图（map_Kd）。不支持 UDIM/多UV集/多贴图通道。
+      如需更复杂管线，可考虑导入 glTF + 多通道自定着色器。
+    </p>
+  </div>
+  <div id="viewer">
+    <canvas id="canvas3d"></canvas>
+    <div class="toast">左键旋转 / 右键平移 / 滚轮缩放</div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://unpkg.com/three@0.158.0/build/three.module.js';
+import { OrbitControls } from 'https://unpkg.com/three@0.158.0/examples/jsm/controls/OrbitControls.js';
+import { OBJLoader } from 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/OBJLoader.js';
+import { MTLLoader } from 'https://unpkg.com/three@0.158.0/examples/jsm/loaders/MTLLoader.js';
+
+THREE.ColorManagement.enabled = true;
+
+const canvas = document.getElementById('canvas3d');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(devicePixelRatio);
+renderer.setSize(canvas.clientWidth, canvas.clientHeight, false);
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0b1020);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.01, 1000);
+camera.position.set(0.8, 0.6, 1.2);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x223344, 1.1);
+scene.add(hemi);
+const dir = new THREE.DirectionalLight(0xffffff, 1.0);
+dir.position.set(1,1,1);
+scene.add(dir);
+
+const grid = new THREE.GridHelper(10, 10, 0x334455, 0x223344);
+scene.add(grid);
+
+let modelRoot = new THREE.Group();
+scene.add(modelRoot);
+
+let loadedTexture = null; // 原始贴图
+let originalMeshes = [];  // 加载后的网格列表
+
+// 保存每个网格原始UV（已展开到非索引）供烘焙使用
+function captureOriginalUVs(mesh) {
+  if (!mesh.geometry || !mesh.geometry.attributes.uv) return;
+  const geo = mesh.geometry;
+  // 保存非索引展开版本的原始UV
+  const nonIdx = geo.index ? geo.clone().toNonIndexed() : geo.clone();
+  const uvArr = nonIdx.attributes.uv.array;
+  mesh.userData.originalUVExpanded = new Float32Array(uvArr); // 拷贝
+}
+
+function gatherMeshesWithUV() {
+  const arr = [];
+  modelRoot.traverse(obj => {
+    if (obj.isMesh && obj.geometry && obj.geometry.attributes.uv) {
+      arr.push(obj);
+    }
+  });
+  return arr;
+}
+
+function updateStats() {
+  const meshes = gatherMeshesWithUV();
+  let vcount = 0;
+  meshes.forEach(m => {
+    const g = m.geometry;
+    vcount += (g.index ? g.index.count : g.attributes.position.count);
+  });
+  document.getElementById('meshCount').textContent = String(meshes.length);
+  document.getElementById('vertCount').textContent = String(vcount);
+  document.getElementById('texInfo').textContent = loadedTexture ? `${loadedTexture.image?.width||'-'}×${loadedTexture.image?.height||'-'}` : '无';
+}
+
+function fitCameraToObject(object, offset = 1.3) {
+  const box = new THREE.Box3().setFromObject(object);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  const center = new THREE.Vector3();
+  box.getCenter(center);
+  const maxDim = Math.max(size.x, size.y, size.z);
+  const dist = maxDim / (2 * Math.tan(Math.PI * camera.fov / 360));
+  camera.position.copy(center).add(new THREE.Vector3(dist*offset, dist*offset, dist*offset));
+  camera.near = dist/100;
+  camera.far = dist*100;
+  camera.updateProjectionMatrix();
+  controls.target.copy(center);
+  controls.update();
+}
+
+function clearModel() {
+  modelRoot.clear();
+  originalMeshes = [];
+}
+
+function setStatus(msg){ document.getElementById('status').textContent = msg; }
+
+async function readAsText(file){ return new Promise(res=>{ const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsText(file); }); }
+async function readAsURL(file){ return new Promise(res=>{ const fr = new FileReader(); fr.onload = () => res(fr.result); fr.readAsDataURL(file); }); }
+
+async function loadTextureFromFile(file){
+  const url = await readAsURL(file);
+  return await new Promise(res=>{
+    const tex = new THREE.TextureLoader().load(url, () => { 
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      res(tex);
+    });
+  });
+}
+
+async function loadOBJMTLFromFiles(objFile, mtlFile, textureFile) {
+  clearModel();
+  setStatus('加载中…');
+
+  // 准备材质
+  let material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+
+  if (mtlFile) {
+    try {
+      const mtlText = await readAsText(mtlFile);
+      const mtlLoader = new MTLLoader();
+      const materialsCreator = mtlLoader.parse(mtlText, '');
+      materialsCreator.preload();
+      // 如果 MTL 内未能成功解析贴图，这里仍然会使用默认材质
+      const lib = materialsCreator.materialsInfo;
+      // 选第一个材质
+      const firstKey = Object.keys(lib)[0];
+      if (firstKey) {
+        const mat = materialsCreator.create(materialsCreator.materialsInfo[firstKey]);
+        // three 的 MTLLoader 会尝试按 path 加载图片，这里为了本地文件，优先使用用户手选的贴图
+        material = new THREE.MeshStandardMaterial({ color: 0xffffff });
+        if (mat.map) material.map = mat.map;
+      }
+    } catch (e) { console.warn('解析 MTL 失败，使用默认材质', e); }
+  }
+
+  if (textureFile) {
+    loadedTexture = await loadTextureFromFile(textureFile);
+    material.map = loadedTexture;
+  }
+
+  // 读取 OBJ 文本
+  const objText = await readAsText(objFile);
+  const obj = new OBJLoader().parse(objText);
+
+  // 统一应用材质（若 OBJ 内部带材质，这里仍以外部为准）
+  obj.traverse(o => {
+    if (o.isMesh) {
+      o.material = material.clone();
+      o.material.map = material.map || loadedTexture || null;
+      if (o.material.map) { o.material.map.needsUpdate = true; }
+      o.material.roughness = 0.6; o.material.metalness = 0.0;
+      o.castShadow = true; o.receiveShadow = true;
+      captureOriginalUVs(o);
+    }
+  });
+
+  modelRoot.add(obj);
+  originalMeshes = gatherMeshesWithUV();
+  fitCameraToObject(modelRoot);
+  setStatus('已加载');
+  updateStats();
+}
+
+// UV 预览变换 —— 相对于“原始UV”应用（避免累积误差）
+function applyPreviewUVTransform() {
+  const uo = parseFloat(document.getElementById('uOffset').value);
+  const vo = parseFloat(document.getElementById('vOffset').value);
+  const us = parseFloat(document.getElementById('uScale').value);
+  const vs = parseFloat(document.getElementById('vScale').value);
+  const rd = parseFloat(document.getElementById('rotDeg').value) * Math.PI/180.0;
+
+  const cu = Math.cos(rd), su = Math.sin(rd);
+
+  originalMeshes.forEach(mesh => {
+    const g = mesh.geometry;
+    if (!g.attributes.uv) return;
+    // 基于“初始UV”的拷贝作为源
+    const src = mesh.userData.originalUVExpanded ? mesh.userData.originalUVExpanded : (g.index ? g.clone().toNonIndexed().attributes.uv.array : g.attributes.uv.array);
+
+    // 将 src 写回到（可能有索引）几何的 uv 上
+    let targetGeo = g;
+    if (g.index) {
+      // 将 src（非索引）压回到索引几何需要重建（简化：直接转非索引使用）
+      const non = g.toNonIndexed();
+      targetGeo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(non.attributes.uv.array.length), 2));
+      targetGeo = non; // 转临时非索引几何进行展示
+      mesh.geometry = targetGeo;
+    }
+
+    const uvAttr = targetGeo.attributes.uv;
+    const arr = uvAttr.array;
+    for (let i=0;i<arr.length;i+=2){
+      let u = src[i];
+      let v = src[i+1];
+      // 以中心(0.5,0.5)进行旋转缩放
+      u = (u-0.5); v = (v-0.5);
+      // 旋转
+      const ur = u*cu - v*su;
+      const vr = u*su + v*cu;
+      // 缩放
+      let un = ur*us; let vn = vr*vs;
+      // 平移回中心并偏移
+      un = un + 0.5 + uo;
+      vn = vn + 0.5 + vo;
+      arr[i] = un; arr[i+1] = vn;
+    }
+    uvAttr.needsUpdate = true;
+  });
+}
+
+function resetUVToOriginal(){
+  originalMeshes.forEach(mesh => {
+    const g = mesh.geometry;
+    if (!g.attributes.uv) return;
+    const src = mesh.userData.originalUVExpanded ? mesh.userData.originalUVExpanded : (g.index ? g.clone().toNonIndexed().attributes.uv.array : g.attributes.uv.array);
+
+    let targetGeo = g;
+    if (g.index) {
+      const non = g.toNonIndexed();
+      targetGeo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(non.attributes.uv.array.length), 2));
+      targetGeo = non; mesh.geometry = targetGeo;
+    }
+    const uvAttr = targetGeo.attributes.uv;
+    const arr = uvAttr.array;
+    for (let i=0;i<arr.length;i+=2){ arr[i]=src[i]; arr[i+1]=src[i+1]; }
+    uvAttr.needsUpdate = true;
+  });
+  document.getElementById('uOffset').value = 0;
+  document.getElementById('vOffset').value = 0;
+  document.getElementById('uScale').value = 1;
+  document.getElementById('vScale').value = 1;
+  document.getElementById('rotDeg').value = 0;
+}
+
+// 一键烘焙：把旧UV下的贴图 → 根据“当前UV”重新投射
+async function bakeTextureAndReplace() {
+  if (!loadedTexture) {
+    alert('请先加载贴图（PNG/JPG），或在 MTL 中引用贴图。');
+    return;
+  }
+  const meshes = gatherMeshesWithUV();
+  if (meshes.length === 0) { alert('未找到带 UV 的网格。'); return; }
+
+  const size = parseInt(document.getElementById('bakeSize').value, 10) || 1024;
+
+  // 组合所有网格为“UV平面三角形集合”：顶点位置 = 当前UV；varying = 原始UV
+  const mergedPos = [];
+  const mergedOld = [];
+
+  meshes.forEach(mesh => {
+    const g = mesh.geometry;
+    // 当前 UV & 位置：转非索引
+    const non = g.index ? g.toNonIndexed() : g;
+    const curr = non.attributes.uv.array; // 当前 UV（作为绘制位置）
+    // 原始 UV（展开版）
+    const orig = mesh.userData.originalUVExpanded;
+    if (!orig || orig.length !== curr.length) {
+      console.warn('原始UV与当前UV顶点数不一致，跳过该网格。');
+      return;
+    }
+    for (let i=0;i<curr.length;i+=2) {
+      mergedPos.push(curr[i], curr[i+1], 0);
+      mergedOld.push(orig[i], orig[i+1]);
+    }
+  });
+
+  if (mergedPos.length === 0) { alert('没有可烘焙的数据。'); return; }
+
+  const bakeGeo = new THREE.BufferGeometry();
+  bakeGeo.setAttribute('position', new THREE.Float32BufferAttribute(mergedPos, 3));
+  bakeGeo.setAttribute('uvOld', new THREE.Float32BufferAttribute(mergedOld, 2));
+
+  // 着色器：在“UV空间”绘制三角形，采样旧贴图
+  const bakeMat = new THREE.ShaderMaterial({
+    uniforms: { map: { value: loadedTexture } },
+    vertexShader: `
+      attribute vec2 uvOld;
+      varying vec2 vOldUV;
+      void main(){
+        vOldUV = uvOld;
+        // position.xy = 当前UV ∈ [0,1]，映射到裁剪空间 [-1,1]
+        vec2 pos = position.xy * 2.0 - 1.0;
+        gl_Position = vec4(pos, 0.0, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D map;
+      varying vec2 vOldUV;
+      void main(){
+        vec4 c = texture2D(map, vOldUV);
+        gl_FragColor = c;
+      }
+    `,
+    depthTest: false,
+    depthWrite: false,
+  });
+
+  const bakeScene = new THREE.Scene();
+  const bakeMesh = new THREE.Mesh(bakeGeo, bakeMat);
+  bakeScene.add(bakeMesh);
+  const dummyCam = new THREE.Camera();
+
+  const rt = new THREE.WebGLRenderTarget(size, size, { 
+    depthBuffer: false,
+    stencilBuffer: false,
+    type: THREE.UnsignedByteType,
+    colorSpace: THREE.SRGBColorSpace,
+  });
+
+  const prevRT = renderer.getRenderTarget();
+  const prevAutoClear = renderer.autoClear;
+  renderer.autoClear = true;
+
+  renderer.setRenderTarget(rt);
+  renderer.clearColor();
+  renderer.setClearColor(0x000000, 0.0);
+  renderer.clear(true, true, true);
+  renderer.render(bakeScene, dummyCam);
+
+  renderer.setRenderTarget(prevRT);
+  renderer.autoClear = prevAutoClear;
+
+  // 读取像素并写入 Canvas（翻转Y，使导出的PNG是常规的顶点在上）
+  const pixels = new Uint8Array(size * size * 4);
+  renderer.readRenderTargetPixels(rt, 0, 0, size, size, pixels);
+
+  const cvs = document.createElement('canvas');
+  cvs.width = size; cvs.height = size;
+  const ctx = cvs.getContext('2d');
+  const imgData = ctx.createImageData(size, size);
+
+  // 翻转：把底部行写到顶部
+  const rowBytes = size * 4;
+  for (let y=0; y<size; y++) {
+    const srcStart = (size - 1 - y) * rowBytes;
+    const dstStart = y * rowBytes;
+    imgData.data.set(pixels.subarray(srcStart, srcStart + rowBytes), dstStart);
+  }
+  ctx.putImageData(imgData, 0, 0);
+
+  // 替换场景材质贴图
+  const bakedTex = new THREE.CanvasTexture(cvs);
+  bakedTex.colorSpace = THREE.SRGBColorSpace;
+  bakedTex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+  // 在我们已翻转画布行的前提下，CanvasTexture 默认 flipY=false 正合适
+  bakedTex.flipY = false;
+  bakedTex.needsUpdate = true;
+
+  gatherMeshesWithUV().forEach(m => {
+    if (!m.material) return;
+    if (Array.isArray(m.material)) {
+      m.material.forEach(mm => { mm.map = bakedTex; mm.needsUpdate = true; });
+    } else {
+      m.material.map = bakedTex;
+      m.material.needsUpdate = true;
+    }
+  });
+
+  // 触发下载
+  const dataURL = cvs.toDataURL('image/png');
+  const a = document.getElementById('dlLink');
+  a.href = dataURL;
+  a.style.display = 'inline-block';
+  a.click();
+}
+
+// 渲染循环
+function render() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  const needResize = canvas.width !== Math.floor(w*devicePixelRatio) || canvas.height !== Math.floor(h*devicePixelRatio);
+  if (needResize) {
+    renderer.setSize(w, h, false);
+    camera.aspect = w/h; camera.updateProjectionMatrix();
+  }
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(render);
+}
+render();
+
+// UI 事件
+['uOffset','vOffset','uScale','vScale','rotDeg'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', applyPreviewUVTransform);
+});
+
+document.getElementById('applyUV').addEventListener('click', applyPreviewUVTransform);
+document.getElementById('resetUV').addEventListener('click', ()=>{ resetUVToOriginal(); });
+document.getElementById('bake').addEventListener('click', bakeTextureAndReplace);
+document.getElementById('download').addEventListener('click', ()=>{
+  // 如果刚刚烘焙过，会把链接放到 dlLink 上。否则提示用“烘焙”。
+  const a = document.getElementById('dlLink');
+  if (a.getAttribute('href') && a.getAttribute('href') !== '#') {
+    a.click();
+  } else {
+    alert('请先点击“⚡ 一键烘焙并替换材质”。');
+  }
+});
+
+// 文件选择与拖拽
+const objInput = document.getElementById('objFile');
+const mtlInput = document.getElementById('mtlFile');
+const texInput = document.getElementById('texFile');
+
+async function tryLoadFromInputs(){
+  const objF = objInput.files[0];
+  if (!objF) { alert('请选择 OBJ 文件'); return; }
+  const mtlF = mtlInput.files[0] || null;
+  const texF = texInput.files[0] || null;
+  await loadOBJMTLFromFiles(objF, mtlF, texF);
+}
+
+objInput.addEventListener('change', tryLoadFromInputs);
+mtlInput.addEventListener('change', tryLoadFromInputs);
+texInput.addEventListener('change', tryLoadFromInputs);
+
+const drop = document.getElementById('drop');
+;['dragenter','dragover'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.add('highlight'); }));
+;['dragleave','drop'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove('highlight'); }));
+drop.addEventListener('drop', async (e)=>{
+  const files = e.dataTransfer.files;
+  const objF = [...files].find(f=>/\.obj$/i.test(f.name));
+  const mtlF = [...files].find(f=>/\.mtl$/i.test(f.name));
+  const texF = [...files].find(f=>/\.(png|jpg|jpeg|webp)$/i.test(f.name));
+  if (!objF) { alert('请拖入 OBJ 文件'); return; }
+  objInput.files = new DataTransfer().files; // 清空
+  mtlInput.files = new DataTransfer().files; // 清空
+  texInput.files = new DataTransfer().files; // 清空
+  await loadOBJMTLFromFiles(objF, mtlF || null, texF || null);
+});
+
+window.addEventListener('resize', ()=>{
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+});
+</script>
+</body>
+</html>

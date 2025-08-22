@@ -1,0 +1,44 @@
+{
+	"code": 0,
+	"data": {
+		"place": "",
+		"visitorInfoList": [{
+				"place": "济南",
+				"number": 2,
+				"data": [{
+						"sex": 1,
+						"company": "上海柏楚",
+						"phoneNo": "18535886848",
+						"position": "老板",
+						"hotelDate": "9.21晚上",
+						"hotelPlan": "单人间",
+						"needHotel": "yes",
+						"receptionistName": "AAAAAA"
+					},
+					{
+						"sex": 1,
+						"company": "上海柏楚",
+						"phoneNo": "18535886848",
+						"position": "老板",
+						"hotelDate": "9.21晚上",
+						"hotelPlan": "单人间",
+						"needHotel": "yes",
+						"receptionistName": "BBBBB"
+					}
+				]
+			},
+			{
+				"place": "上海",
+				"number": 0,
+				"data": {}
+			}
+		]
+	},
+	"message": "ok"
+}
+
+{
+	"code": 0,
+	"data": null,
+	"message": "ok"
+}

@@ -1,0 +1,2114 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8">
+		<title>柏楚2025年价值共创峰会</title>
+		<meta name="viewport" content="width=375, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+		<link rel="styleSHeet" href="css/style.css" />
+		<link rel="styleSHeet" href="css/remixicon.css">
+		<link rel="styleSHeet" href="css/fontawesome.min.css" />
+		<script src="js/v3.2.8/vue.global.prod.js"></script>
+
+		<!-- 通用工具 -->
+		<script src="js/utils.js"></script>
+		<!-- 启动页面相关 -->
+		<script src="js/start.js"></script>
+		<!-- 注册登录相关 -->
+		<script src="js/login.js"></script>
+		<!-- 参会登记相关 -->
+		<script src="js/check.js"></script>
+
+
+
+
+
+
+
+		<script src="js/qrcode.min.js"></script>
+		<script src="js/md5.min.js"></script>
+		<script>
+			// 全局 API 配置
+			const API_CONFIG = {
+				BASE_URL: "http://47.95.200.253:8788/api"
+			};
+
+			// 工具函数：拼接请求地址
+			function apiUrl(path) {
+				return `${API_CONFIG.BASE_URL}${path}`;
+			}
+
+			// 定义刷新函数
+			function refresh() {
+				// 清除指定的 cookies
+				const cookiesToClear = [
+					'access_statusJN',
+					'access_statusSH',
+					'auth_token',
+					'checkinJN',
+					'checkinSH',
+					'customerId',
+					'login_status',
+					'qrCode',
+					'qrStatus',
+					'user_mobile',
+					'userStatus'
+				];
+
+				// 遍历所有 cookies，清除它们
+				cookiesToClear.forEach(cookie => {
+					document.cookie = `${encodeURIComponent(cookie)}=; path=/; max-age=0`;
+					console.log(`Cookie ${cookie} 已清除`);
+				});
+
+				// 清空 localStorage
+				localStorage.clear();
+				console.log('LocalStorage 已清空');
+
+				// 刷新页面
+				window.location.reload();
+			}
+		</script>
+
+		<script src="js/all.min.js"></script>
+		<style>
+			body {
+				margin: 0;
+				font-family: Arial, sans-serif;
+				background-color: #fff;
+			}
+		</style>
+	</head>
+	<body>
+		<div class="test">
+			<button class="test-btn" onclick="refresh()">清除登录</button>
+		</div>
+		<div class="container">
+			<!-- 顶部蓝色背景底，要在多个页面出现 -->
+			<!-- <div class="blue-bg">
+				<img src="img/蓝色背景.webp" alt="" />
+			</div> -->
+
+
+			<div id="app">
+				<div class="page-wrapper">
+					<transition :name="transitionName" mode="out-in">
+						<div class="page" :key="currentPage">
+							<!-- v-if 切换页 -->
+
+
+
+
+
+
+
+
+
+
+							<template v-if="currentPage==='home'">
+								<div class="blue-bg">
+									<img src="img/蓝色背景.webp" alt="" />
+								</div>
+								<div class="header">
+									<div class="header-logo">
+										<img src="img/bochu.svg" alt="BOCHU Logo">
+									</div>
+
+									<div class="header-title">
+										<img src="img/head.webp" alt="" />
+										<h2>-柏楚2025年价值共创峰会-</h2>
+									</div>
+
+									<!-- 单场信息（绑定选中的场次） -->
+									<div class="header-info" v-if="selectedSession">
+										<div class="info">
+											<div class="info-top">
+												<div class="info-icon"><i class="ri-calendar-check-line"></i></div>
+												<div class="info-text">{{ selectedSession.date }}</div>
+											</div>
+											<div class="info-bottom">
+												<div class="info-icon"><i class="ri-map-pin-line"></i></div>
+												<div class="info-text">{{ selectedSession.city }}</div>
+											</div>
+										</div>
+										<a class="session-change" @click="openSessionPicker">
+											<i class="ri-loop-left-line"></i>
+										</a>
+									</div>
+
+									<!-- 还没选择时的提示 -->
+									<div class="header-info" v-else>
+										<a class="session-select" @click="openSessionPicker">请选择场次</a>
+									</div>
+								</div>
+
+								<!-- 菜单同原来 -->
+								<div class="menu">
+									<div class="menu-item" @click="go('invite')">
+										<div class="menu-item-top"><i class="ri-mail-open-line"></i></div>
+										<div class="menu-item-bottom">邀请函</div>
+									</div>
+									<div class="menu-item" @click="enterSignup">
+										<div class="menu-item-top"><i class="ri-coupon-line"></i></div>
+										<div class="menu-item-bottom">
+											{{
+											    (selectedSessionKey === 'SH' && getCookie('checkinSH') === '1') ||
+											    (selectedSessionKey === 'JN' && getCookie('checkinJN') === '1')
+											      ? '登记修改'
+											      : '参会登记'
+											  }}
+										</div>
+									</div>
+									<div class="menu-item" @click="go('agenda')">
+										<div class="menu-item-top"><i class="ri-calendar-2-line"></i></div>
+										<div class="menu-item-bottom">会议日程</div>
+									</div>
+									<div class="menu-item" @click="go('hotel')">
+										<div class="menu-item-top"><i class="ri-hotel-line"></i></div>
+										<div class="menu-item-bottom">交通路线</div>
+									</div>
+									<div class="menu-item" @click="enterAccess">
+										<div class="menu-item-top"><i class="ri-qr-code-line"></i></div>
+										<div class="menu-item-bottom">入场码</div>
+									</div>
+								</div>
+							</template>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+							<template v-else-if="currentPage==='invite'">
+								<div id="page-invite">
+									<div class="page-head">
+										<div class="page-head-back-btn shadow-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">
+
+										</div>
+									</div>
+									<div class="page-show">
+										<img src="img/01-邀请函.webp" alt="" />
+									</div>
+								</div>
+							</template>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+							<template v-else-if="currentPage==='signup'">
+								<div class="blue-bg">
+									<img src="img/蓝色背景.webp" alt="" />
+								</div>
+								<div id="page-signup">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">
+											{{ getCookie('login_status') === '3' ? '登记修改' : '参会登记' }}
+										</div>
+									</div>
+									<div class="page-logo2">
+										<img src="img/bochu.svg" alt="BOCHU Logo">
+									</div>
+
+									<!-- 白色卡片 -->
+									<div class="signup-card">
+										<!-- tab 切换 -->
+										<div class="signup-tabs">
+											<div :class="['tab', signupType==='phone' ? 'active' : '']"
+												@click="signupType='phone'">手机号快捷登录</div>
+											<!-- <div :class="['tab', signupType==='email' ? 'active' : '']"
+												@click="signupType='email'">邮箱注册</div> -->
+										</div>
+
+										<!-- 手机号注册 -->
+										<div v-if="signupType==='phone'" class="signup-form">
+											<div class="input-row">
+												<i class="ri-smartphone-line"></i>
+												<input type="tel" placeholder="请输入手机号" v-model.trim="form.mobile">
+											</div>
+											<div class="input-row">
+												<i class="ri-shield-check-line"></i>
+												<input type="text" placeholder="请输入验证码" v-model.trim="form.code">
+												<button type="button" class="code-btn" @click="getCode">
+													{{ codeCountdown > 0 ? codeCountdown + '秒后重试' : '获取验证码' }}
+												</button>
+											</div>
+											<p class="tip">ⓘ 未注册手机号将自动创建新账号。</p>
+											<button class="submit-btn" :class="{ disabled: loginLock }"
+												:disabled="loginLock"
+												@click="submitSignup">{{ loginLock ? "登录中..." : "继续" }}</button>
+										</div>
+
+										<!-- 邮箱注册 -->
+										<div v-else class="signup-form">
+											<div class="input-row">
+												<i class="ri-mail-line"></i>
+												<input type="email" placeholder="请输入邮箱" v-model.trim="form.email">
+											</div>
+											<div class="input-row">
+												<i class="ri-shield-check-line"></i>
+												<input type="text" placeholder="请输入验证码" v-model.trim="form.code">
+												<button type="button" class="code-btn" @click="getCode">
+													{{ codeCountdown > 0 ? codeCountdown + '秒后重试' : '获取验证码' }}
+												</button>
+											</div>
+											<button class="submit-btn" :class="{ disabled: loginLock }"
+												:disabled="loginLock"
+												@click="submitSignup">{{ loginLock ? "登录中..." : "继续" }}</button>
+										</div>
+									</div>
+								</div>
+							</template>
+
+
+
+
+
+
+
+
+							<template v-else-if="currentPage==='login'">
+								<div class="blue-bg">
+									<img src="img/蓝色背景.webp" alt="" />
+								</div>
+								<div id="page-login">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">查看入场码</div>
+									</div>
+
+									<div class="page-logo2">
+										<img src="img/bochu.svg" alt="BOCHU Logo">
+									</div>
+
+									<!-- 白色卡片 -->
+									<div class="login-card">
+										<!-- tab 切换 -->
+										<div class="login-tabs">
+											<div :class="['login-tab', loginType==='phone' ? 'active' : '']"
+												@click="loginType='phone'">手机号快捷登录</div>
+											<!-- <div :class="['login-tab', loginType==='email' ? 'active' : '']"
+												@click="loginType='email'">邮箱登录</div> -->
+										</div>
+
+										<!-- 手机号登录 -->
+										<div v-if="loginType==='phone'" class="login-form">
+											<div class="login-input-row">
+												<i class="ri-smartphone-line"></i>
+												<input type="tel" placeholder="请输入手机号" v-model.trim="loginForm.mobile">
+											</div>
+											<div class="login-input-row">
+												<i class="ri-shield-check-line"></i>
+												<input type="text" placeholder="请输入验证码" v-model.trim="loginForm.code">
+												<button type="button" class="login-code-btn" @click="getLoginCode">
+													{{ codeCountdown > 0 ? codeCountdown + '秒后重试' : '获取验证码' }}
+												</button>
+											</div>
+											<p class="login-tip">ⓘ 未注册手机号将自动创建新账号。</p>
+											<button class="submit-btn" :class="{ disabled: loginLock }"
+												:disabled="loginLock"
+												@click="submitLogin">{{ loginLock ? "登录中..." : "继续" }}</button>
+										</div>
+
+										<!-- 邮箱登录 -->
+										<div v-else class="login-form">
+											<div class="login-input-row">
+												<i class="ri-mail-line"></i>
+												<input type="email" placeholder="请输入邮箱" v-model.trim="loginForm.email">
+											</div>
+											<div class="login-input-row">
+												<i class="ri-shield-check-line"></i>
+												<input type="text" placeholder="请输入验证码" v-model.trim="loginForm.code">
+												<button type="button" class="login-code-btn" @click="getLoginCode">
+													{{ codeCountdown > 0 ? codeCountdown + '秒后重试' : '获取验证码' }}
+												</button>
+											</div>
+											<button class="login-submit-btn" :class="{ disabled: loginLock }"
+												:disabled="loginLock"
+												@click="submitLogin">{{ loginLock ? "登录中..." : "继续" }}</button>
+										</div>
+									</div>
+								</div>
+							</template>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+							<template v-else-if="currentPage==='signupSH'">
+								<div class="blue-bg">
+									<img src="img/蓝色背景.webp" alt="" />
+								</div>
+								<div id="page-signupSH">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">
+											{{
+											    (selectedSessionKey === 'SH' && getCookie('checkinSH') === '1') ||
+											    (selectedSessionKey === 'JN' && getCookie('checkinJN') === '1')
+											      ? '登记修改'
+											      : '参会登记'
+											  }}
+										</div>
+									</div>
+									<!-- 会议信息卡片 -->
+									<div class="session-info">
+										<p class="session-tip">您预约参加的会议是：</p>
+										<div class="session-details">
+											<div class="session-block">
+												<i class="ri-map-pin-line"></i>
+												<span>{{ selectedSession.city }}</span>
+											</div>
+											<div class="session-block">
+												<i class="ri-calendar-check-line"></i>
+												<span>{{ selectedSession.date }}</span>
+											</div>
+										</div>
+									</div>
+									<!-- 填写表单 -->
+									<div class="form-card alist-card">
+										<div class="alist-tip">
+											<i class="ri-information-line"></i> 请按真实情况填写以下内容
+										</div>
+
+										<button class="alist-add" @click="openCreateProfile">
+											<i class="ri-user-add-line"></i> 新增出席人员
+										</button>
+
+										<div v-if="attendees.length === 0" class="alist-empty">
+											还没有出席人员<br>点击上方“新增出席人员”开始填写
+										</div>
+
+										<div v-for="p in attendees" :key="p.id" class="alist-item"
+											:class="{'alist-item--hotel': p.needHotel==='yes'}">
+											<div class="alist-head">
+												<div class="alist-name">{{ p.name }}</div>
+												<div class="alist-actions">
+													<button class="alist-icon" @click="openEditProfile(p.id)"
+														aria-label="编辑"><i class="ri-edit-2-line"></i></button>
+													<button class="alist-icon danger" @click="removeProfile(p.id)"
+														aria-label="删除"><i class="ri-delete-bin-6-line"></i></button>
+												</div>
+											</div>
+											<ul class="alist-meta">
+												<li><i class="ri-user-3-line"></i> 性别：{{ p.gender || '-' }}</li>
+												<li><i class="ri-briefcase-2-line"></i> 公司：{{ p.company || '-' }}</li>
+												<li><i class="ri-briefcase-2-line"></i>职位：{{ p.title || '-' }}</li>
+												<li v-if="p.mobile"><i class="ri-smartphone-line"></i> 手机：{{ p.mobile }}
+												</li>
+												<template v-if="p.needHotel==='yes'">
+													<li><i class="ri-hotel-bed-line"></i> 需要住宿</li>
+													<li v-if="p.hotelPlan"><i class="ri-home-4-line"></i>
+														入住房型：{{ hotelPlanLabel(p.hotelPlan) }}</li>
+													<li v-if="p.stayNights && p.stayNights.length"><i
+															class="ri-calendar-line"></i>
+														入住日期：{{ humanizeNights(p.stayNights) }}</li>
+												</template>
+												<li v-if="p.carPlate"><i class="ri-car-line"></i> 车牌：{{ p.carPlate }}
+												</li>
+											</ul>
+										</div>
+									</div>
+
+									<div class="btn-bottom">
+										<button class="submit-btn" :class="{ disabled: submitLock }"
+											:disabled="submitLock"
+											@click="submitSignup2">{{ submitLock ? "提交中..." : "继续" }}</button>
+									</div>
+								</div>
+							</template>
+
+
+
+
+
+
+							<template v-else-if="currentPage==='signupJN'">
+								<div class="blue-bg">
+									<img src="img/蓝色背景.webp" alt="" />
+								</div>
+								<div id="page-signupJN">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">
+											{{
+											    (selectedSessionKey === 'SH' && getCookie('checkinSH') === '1') ||
+											    (selectedSessionKey === 'JN' && getCookie('checkinJN') === '1')
+											      ? '登记修改'
+											      : '参会登记'
+											  }}
+										</div>
+									</div>
+									<!-- 会议信息卡片 -->
+									<div class="session-info">
+										<p class="session-tip">您预约参加的会议是：</p>
+										<div class="session-details">
+											<div class="session-block">
+												<i class="ri-map-pin-line"></i>
+												<span>{{ selectedSession.city }}</span>
+											</div>
+											<div class="session-block">
+												<i class="ri-calendar-check-line"></i>
+												<span>{{ selectedSession.date }}</span>
+											</div>
+										</div>
+									</div>
+									<!-- 填写表单 -->
+									<div class="form-card alist-card">
+										<div class="alist-tip">
+											<i class="ri-information-line"></i> 请按真实情况填写以下内容
+										</div>
+
+										<button class="alist-add" @click="openCreateProfile">
+											<i class="ri-user-add-line"></i> 新增出席人员
+										</button>
+
+										<div v-if="attendees.length === 0" class="alist-empty">
+											还没有出席人员<br>点击上方“新增出席人员”开始填写
+										</div>
+
+										<div v-for="p in attendees" :key="p.id" class="alist-item"
+											:class="{'alist-item--hotel': p.needHotel==='yes'}">
+											<div class="alist-head">
+												<div class="alist-name">{{ p.name }}</div>
+												<div class="alist-actions">
+													<button class="alist-icon" @click="openEditProfile(p.id)"
+														aria-label="编辑"><i class="ri-edit-2-line"></i></button>
+													<button class="alist-icon danger" @click="removeProfile(p.id)"
+														aria-label="删除"><i class="ri-delete-bin-6-line"></i></button>
+												</div>
+											</div>
+											<ul class="alist-meta">
+												<li><i class="ri-user-3-line"></i> 性别：{{ p.gender || '-' }}</li>
+												<li><i class="ri-briefcase-2-line"></i> 公司：{{ p.company || '-' }}</li>
+												<li><i class="ri-briefcase-2-line"></i>职位：{{ p.title || '-' }}</li>
+												<li v-if="p.mobile"><i class="ri-smartphone-line"></i> 手机：{{ p.mobile }}
+												</li>
+												<template v-if="p.needHotel==='yes'">
+													<li><i class="ri-hotel-bed-line"></i> 需要住宿</li>
+													<li v-if="p.hotelPlan"><i class="ri-home-4-line"></i>
+														入住房型：{{ hotelPlanLabel(p.hotelPlan) }}</li>
+													<li v-if="p.stayNights && p.stayNights.length"><i
+															class="ri-calendar-line"></i>
+														入住日期：{{ humanizeNights(p.stayNights) }}</li>
+												</template>
+												<li v-if="p.carPlate"><i class="ri-car-line"></i> 车牌：{{ p.carPlate }}
+												</li>
+											</ul>
+										</div>
+									</div>
+
+
+									<div class="btn-bottom">
+										<button class="submit-btn" :class="{ disabled: submitLock }"
+											:disabled="submitLock"
+											@click="submitSignup2">{{ submitLock ? "提交中..." : "继续" }}</button>
+									</div>
+								</div>
+							</template>
+
+
+
+
+
+
+							<template v-else-if="currentPage==='ProfileEditSH'">
+								<div id="page-Profile-Edit">
+									<div class="form-card pe-card">
+										<!-- 左上角关闭 -->
+										<button class="pe-close" @click="go('signupSH')" aria-label="关闭">
+											<i class="ri-close-line"></i>
+										</button>
+
+										<!-- 顶部提示条 -->
+										<div class="pe-tip">
+											<i class="ri-information-line"></i>
+											<span>请按真实情况填写以下内容</span>
+										</div>
+
+										<!-- 表单 -->
+										<form class="pe-form" @submit.prevent="saveProfile">
+											<div class="pe-field">
+												<label class="pe-label req">姓名</label>
+												<input class="pe-input" type="text" v-model.trim="editing.name"
+													placeholder="请输入姓名（必填）" required>
+											</div>
+
+											<div class="pe-field">
+												<label class="pe-label req">性别</label>
+												<div class="pe-radio-row">
+													<label class="pe-radio"><input type="radio" value="男"
+															v-model="editing.gender"> 男</label>
+													<label class="pe-radio"><input type="radio" value="女"
+															v-model="editing.gender"> 女</label>
+												</div>
+											</div>
+
+											<div class="pe-field">
+												<label class="pe-label">手机</label>
+												<input class="pe-input" type="tel" v-model.trim="editing.mobile"
+													inputmode="numeric" placeholder="">
+											</div>
+
+											<div class="pe-field">
+												<label class="pe-label req">公司名称</label>
+												<input class="pe-input" type="text" v-model.trim="editing.company"
+													required placeholder="请输入公司名称（必填）">
+											</div>
+
+											<div class="pe-field">
+												<label class="pe-label req">职位</label>
+												<input class="pe-input" type="text" v-model.trim="editing.title"
+													required placeholder="请输入职位（必填）">
+											</div>
+
+											<div class="pe-field">
+												<label class="pe-label req">是否需要安排住宿</label>
+												<div class="pe-radio-row">
+													<label class="pe-radio"><input type="radio" value="yes"
+															v-model="editing.needHotel"> 需要</label>
+													<label class="pe-radio"><input type="radio" value="no"
+															v-model="editing.needHotel"> 不需要</label>
+												</div>
+											</div>
+
+											<div class="pe-field" v-if="editing.needHotel==='yes'">
+												<label class="pe-label req">住宿安排</label>
+												<select class="pe-select" v-model="editing.hotelPlan" required>
+													<option value="" disabled>下拉选择</option>
+													<option value="single">标间</option>
+													<option value="twin">大床房</option>
+												</select>
+											</div>
+
+											<div class="pe-field" v-if="editing.needHotel==='yes'">
+												<label class="pe-label req">住宿日期</label>
+												<div class="pe-check-col">
+													<label class="pe-check"><input type="checkbox" value="9.21晚"
+															v-model="editing.stayNights"> 9.21晚</label>
+													<label class="pe-check"><input type="checkbox" value="9.22晚"
+															v-model="editing.stayNights"> 9.22晚</label>
+												</div>
+											</div>
+
+											<div class="pe-field">
+												<label class="pe-label">自驾车牌</label>
+												<input class="pe-input" type="text" v-model.trim="editing.carPlate"
+													placeholder="如有请填写">
+											</div>
+
+											<!-- 底部按钮：靠两侧排列 -->
+
+										</form>
+										<div class="pe-actions">
+											<button type="button" class="pe-btn danger" v-if="editing.id"
+												@click="removeProfile(editing.id)">删除</button>
+											<button type="submit" class="pe-btn primary"
+												@click="saveProfile">保存</button>
+										</div>
+									</div>
+								</div>
+							</template>
+
+
+							<template v-else-if="currentPage==='ProfileEditJN'">
+								<div id="page-Profile-Edit">
+									<div class="form-card pe-card">
+										<!-- 左上角关闭 -->
+										<button class="pe-close" @click="go('signupJN')" aria-label="关闭">
+											<i class="ri-close-line"></i>
+										</button>
+
+										<!-- 顶部提示条 -->
+										<div class="pe-tip">
+											<i class="ri-information-line"></i>
+											<span>请按真实情况填写以下内容</span>
+										</div>
+
+										<!-- 表单 -->
+										<form class="pe-form" @submit.prevent="saveProfile">
+											<div class="pe-field">
+												<label class="pe-label req">姓名</label>
+												<input class="pe-input" type="text" v-model.trim="editing.name"
+													placeholder="请输入姓名（必填）" required>
+											</div>
+
+											<div class="pe-field">
+												<label class="pe-label req">性别</label>
+												<div class="pe-radio-row">
+													<label class="pe-radio"><input type="radio" value="男"
+															v-model="editing.gender"> 男</label>
+													<label class="pe-radio"><input type="radio" value="女"
+															v-model="editing.gender"> 女</label>
+												</div>
+											</div>
+
+											<div class="pe-field">
+												<label class="pe-label">手机</label>
+												<input class="pe-input" type="tel" v-model.trim="editing.mobile"
+													inputmode="numeric" placeholder="">
+											</div>
+
+											<div class="pe-field">
+												<label class="pe-label req">公司名称</label>
+												<input class="pe-input" type="text" v-model.trim="editing.company"
+													required placeholder="请输入公司名称（必填）">
+											</div>
+
+											<div class="pe-field">
+												<label class="pe-label req">职位</label>
+												<input class="pe-input" type="text" v-model.trim="editing.title"
+													required placeholder="请输入职位（必填）">
+											</div>
+
+											<div class="pe-field">
+												<label class="pe-label req">是否需要安排住宿</label>
+												<div class="pe-radio-row">
+													<label class="pe-radio"><input type="radio" value="yes"
+															v-model="editing.needHotel"> 需要</label>
+													<label class="pe-radio"><input type="radio" value="no"
+															v-model="editing.needHotel"> 不需要</label>
+												</div>
+											</div>
+
+											<div class="pe-field" v-if="editing.needHotel==='yes'">
+												<label class="pe-label req">住宿安排</label>
+												<select class="pe-select" v-model="editing.hotelPlan" required>
+													<option value="" disabled>下拉选择</option>
+													<option value="single">标间</option>
+													<option value="twin">大床房/双人间</option>
+												</select>
+											</div>
+
+											<div class="pe-field" v-if="editing.needHotel==='yes'">
+												<label class="pe-label req">住宿日期</label>
+												<div class="pe-check-col">
+													<label class="pe-check"><input type="checkbox" value="9.16晚"
+															v-model="editing.stayNights"> 9.16晚</label>
+												</div>
+											</div>
+
+											<!-- 底部按钮：靠两侧排列 -->
+
+										</form>
+										<div class="pe-actions">
+											<button type="button" class="pe-btn danger" v-if="editing.id"
+												@click="removeProfile(editing.id)">删除</button>
+											<button type="submit" class="pe-btn primary"
+												@click="saveProfile">保存</button>
+										</div>
+									</div>
+								</div>
+							</template>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+							<template v-else-if="currentPage==='status'">
+								<div class="blue-bg">
+									<img src="img/蓝色背景.webp" alt="" />
+								</div>
+								<div id="page-status">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">
+											报名
+										</div>
+									</div>
+									<div class="page-logo3">
+										<img src="img/bochu.svg" alt="BOCHU Logo">
+									</div>
+
+									<!-- 成功提示 -->
+									<div class="status-success">
+										<div class="ok-mark">✔</div>
+										<h2 class="ok-title">您已登记成功</h2>
+									</div>
+
+									<!-- 底部按钮 -->
+									<div class="btn-bottom">
+										<button class="submit-btn" @click="go('home')">返回</button>
+									</div>
+
+								</div>
+							</template>
+
+							<template v-else-if="currentPage==='AccessPre1'">
+								<div class="blue-bg">
+									<img src="img/蓝色背景.webp" alt="" />
+								</div>
+								<div id="page-Access">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">
+											入场码
+										</div>
+									</div>
+									<div class="page-logo2">
+										<img src="img/bochu.svg" alt="BOCHU Logo">
+									</div>
+									<!-- 状态提示 -->
+									<div class="access-status">
+										<div class="mark1">✔</div>
+										<h2 class="ok-title">您还未登记</h2>
+									</div>
+
+									<!-- 底部按钮 -->
+									<div class="access-btn-bottom">
+										<button class="access-btn" @click="goSignupFromAccess">进入登记</button>
+									</div>
+
+								</div>
+							</template>
+
+							<template v-else-if="currentPage==='AccessPre2'">
+								<div class="blue-bg">
+									<img src="img/蓝色背景.webp" alt="" />
+								</div>
+								<div id="page-Access">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">
+											入场码
+										</div>
+									</div>
+									<div class="page-logo2">
+										<img src="img/bochu.svg" alt="BOCHU Logo">
+									</div>
+									<div class="status-success">
+										<div class="ok-mark">✔</div>
+										<h2 class="ok-title">您已登记成功<br>请等待工作人员审核</h2>
+									</div>
+
+									<!-- 底部按钮 -->
+									<div class="btn-bottom">
+										<button class="submit-btn" @click="go('home')">返回</button>
+									</div>
+
+								</div>
+							</template>
+
+							<template v-else-if="currentPage==='Access'">
+								<div class="blue-bg">
+									<img src="img/蓝色背景.webp" alt="" />
+								</div>
+								<div id="page-Access">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">
+											入场码
+										</div>
+									</div>
+									<div class="page-logo2">
+										<img src="img/bochu.svg" alt="BOCHU Logo">
+									</div>
+									<div class="access-card">
+										<p class="access-greet"><b></b></p>
+										<p class="access-text">
+											欢迎参会！<br />以下是您的专属入场码 请在签到时展示
+										</p>
+										<div class="access-qr-con">
+											<p class="access-qr-tip">请在入场时出示二维码</p>
+
+											<div class="access-qr-wrap">
+												<div class="access-qr-box">
+													<div class="access-qr-box-inner" id="qrcode-box">
+														<img v-if="qrUrl" :src="qrUrl" alt="入场二维码">
+														<div v-else class="access-qr-placeholder">
+														</div>
+													</div>
+												</div>
+											</div>
+										</div>
+
+
+
+									</div>
+									<!-- 底部按钮 -->
+									<div class="btn-bottom">
+										<button class="submit-btn" @click="go('home')">返回</button>
+									</div>
+								</div>
+							</template>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+							<template v-else-if="currentPage==='agenda'">
+								<div id="page-agenda">
+									<div class="page-head">
+										<div class="page-head-back-btn shadow-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">
+											会议日程
+										</div>
+									</div>
+									<div class="page-show">
+										<img v-if="selectedSessionKey === 'JN'" src="img/01-会议日程-济南专场psb.webp"
+											alt="济南会议日程" />
+										<img v-else-if="selectedSessionKey === 'SH'" src="img/01-会议日程-上海专场psb.webp"
+											alt="上海会议日程" />
+									</div>
+								</div>
+							</template>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+							<template v-else-if="currentPage==='hotel'">
+
+								<div id="page-hotel">
+									<div class="page-head">
+										<div class="page-head-back-btn shadow-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">
+											交通路线
+										</div>
+									</div>
+
+									<div class="page-show">
+										<img v-if="selectedSessionKey === 'JN'" src="img/济南交通路线图.webp" alt="济南会议日程" />
+										<img v-else-if="selectedSessionKey === 'SH'" src="img/上海交通路线图.webp"
+											alt="上海会议日程" />
+									</div>
+								</div>
+							</template>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+							<template v-else-if="currentPage==='admission'">
+								<div id="page-hotel">
+									<div class="page-head">
+										<div class="page-head-back-btn" @click="go('home')">
+											<i class="ri-arrow-left-s-line"></i>
+										</div>
+										<div class="page-head-text">
+											入场码
+										</div>
+									</div>
+									<div class="page-logo2">
+										<img src="img/bochu.svg" alt="BOCHU Logo">
+									</div>
+								</div>
+							</template>
+						</div>
+					</transition>
+				</div>
+
+
+				<!-- 场次选择弹窗 -->
+				<div class="modal-mask" v-if="ShowSessionPicker" @click.self="closeSessionPicker">
+					<div class="modal">
+						<div class="session-text">请选择会议场次</div>
+						<div class="session-list">
+							<button class="session-btn" @click="setSession('JN')">
+								济南｜2025年9月16日
+							</button>
+							<button class="session-btn" @click="setSession('SH')">
+								上海｜2025年9月22日
+							</button>
+						</div>
+						<button class="modal-cancel" @click="closeSessionPicker">取消</button>
+					</div>
+				</div>
+
+
+
+
+			</div>
+		</div>
+
+
+		<script>
+			const App = {
+				data() {
+					return {
+
+						//会议选择
+						sessions: {
+							JN: {
+								key: 'JN',
+								city: '济南',
+								date: '2025年9月16日'
+							},
+							SH: {
+								key: 'SH',
+								city: '上海',
+								date: '2025年9月22日'
+							}
+						},
+						selectedSessionKey: null, // 'JN' | 'SH'
+						ShowSessionPicker: false, // 控制弹窗
+
+						//切换页面
+						pagesOrder: ['home',
+							'invite',
+							'signup',
+							'signupJN',
+							'signupSH',
+							"ProfileEditSH",
+							"ProfileEditJN",
+							"status",
+							'agenda',
+							'login',
+							'AccessPre1',
+							'AccessPre2',
+							'Access',
+							'hotel',
+							'admission'
+						], // 页面顺序用于判断滑动方向
+						currentPage: 'home',
+						lastPage: 'home',
+						transitionName: 'slide-left', // 初始无所谓，首次渲染不做过渡
+
+
+						//验证码
+						form: {
+							mobile: '',
+							email: '',
+							session: ''
+						},
+
+						//出席人员增删查改
+						attendees: [], // 出席人数组（直接传后端）
+						editing: null, // 当前编辑对象（ProfileEdit 使用）
+
+
+						loginType: 'phone', // phone | email
+						loginForm: {
+							mobile: '',
+							email: '',
+							code: ''
+						},
+
+
+						signupType: 'phone', // phone / email
+						formSH: {
+							name: '',
+							mobile: '',
+							company: '',
+							title: '',
+							needHotel: 'no', // 'yes' | 'no'
+							hotelPlan: '',
+							checkin: '',
+							checkout: '',
+							carPlate: ''
+						},
+						formJN: {
+							name: '',
+							mobile: '',
+							company: '',
+							title: '',
+							needHotel: 'no', // 'yes' | 'no'
+							hotelPlan: '',
+							checkin: '',
+							checkout: '',
+							carPlate: ''
+						},
+						codeCountdown: 0, // 验证码倒计时（秒）
+						codeTimer: null,
+						statusInfo: {
+							time: '2025年8月20日 下午14:30',
+							place: '上海市 兰香湖南路 1800号'
+						},
+						qrUrl: '', // 不再直接存 img url，而是存原始数据
+
+						loginLock: false,
+						submitLock: false,
+					}
+				},
+				created() {
+					// 如果 editing.mobile 为空，尝试从 cookie 再次确认
+					if (!this.editing.mobile) {
+						var cookies = document.cookie.split(";");
+						var userMobile = "";
+
+						for (var i = 0; i < cookies.length; i++) {
+							var cookieItem = cookies[i].trim();
+
+							// 每个 cookie 的格式是 key=value
+							var parts = cookieItem.split("=");
+							var key = parts[0];
+							var value = parts.length > 1 ? parts[1] : "";
+
+							if (key === "user_mobile") {
+								userMobile = value;
+								break;
+							}
+						}
+
+						this.editing.mobile = userMobile;
+					}
+
+				},
+				watch: {
+					currentPage(v) {
+						if (v === 'Access') {
+							this.loadAccessQR();
+						}
+					}
+				},
+				computed: {
+					// 当前选中的场次对象
+					selectedSession() {
+						return this.sessions[this.selectedSessionKey] || null;
+					}
+				},
+
+				methods: {
+
+
+					// 开始访问页面
+					async initLoginAccessOnVisit() {
+						try {
+
+							// 0) 检查前缀
+							getQueryParam();
+
+							// 1) 检查登录
+							const authToken = getCookie('auth_token');
+							console.log(authToken);
+							if (!authToken) {
+								handleNotLoggedIn();
+								return;
+							}
+
+							// 2) 拉用户信息并落 Cookie
+							const user = await fetchUserInfo(authToken);
+							console.log(user);
+							cacheUserInfoToCookies(user);
+
+							// 3) 拉参会信息
+							const raw = await fetchAttendanceRaw(authToken).catch(err => {
+								console.warn("[fetchAttendanceRaw] 接口异常:", err.message);
+								return null; // 返回 null，避免中断
+							});
+							console.log("[attendanceRaw]", raw);
+
+							// 4) 解析与落地（允许 raw = null）
+							const parsed = parseAttendanceData(raw);
+							writeAttendanceToLocalStorage(parsed);
+							writePerSessionAttendeesFromWeb();
+
+							// 5) ===== 新增步骤6：拉取二维码信息 =====
+							let qrData = null;
+							try {
+								qrData = await fetchAndStoreQrCode(authToken, user.customerId);
+							} catch (err) {
+								console.warn("[fetchAndStoreQrCode] 接口异常:", err.message);
+								qrData = null; // 出错时直接兜底为 null
+							}
+							console.log("[qrData]", qrData);
+
+
+							console.log("[status-sync]", {
+								checkinJN: parsed.checkinJN,
+								checkinSH: parsed.checkinSH,
+								sizeJN: parsed.attendeesJN.length,
+								sizeSH: parsed.attendeesSH.length,
+							});
+						} catch (e) {
+							console.error("[initLoginAccessOnVisit 全局异常]", e);
+						}
+					},
+
+
+
+
+					// 写在前面
+					// cookies:
+					// login_status = 0 未注册/登录
+					// login_status = 1 已注册/登录
+					// checkinSH = 0 未登记SH
+					// checkinSH = 1 已登记SH
+					// checkinJN = 0 未登记JN
+					// checkinJN = 1 已登记JN
+					// access_statusSH = 0 未审核SH
+					// access_statusJN = 0 未审核JN
+					// access_statusSH = 1 已审核SH
+					// access_statusJN = 1 已审核JN
+
+
+					// 页面切换逻辑
+					pageIndex(p) {
+						return this.pagesOrder.indexOf(p);
+					},
+
+
+					setTransitionByDirection(from, to) {
+						const fi = this.pageIndex(from),
+							ti = this.pageIndex(to);
+						// 小于表示“前进”（向序列后面走）→ 左滑；反之为右滑
+						this.transitionName = ti > fi ? 'slide-left' : 'slide-right';
+					},
+
+
+					go(page) {
+						if (!this.pagesOrder.includes(page)) return;
+						this.setTransitionByDirection(this.currentPage, page);
+						// 延迟 100ms 再切页
+						setTimeout(() => {
+							this.lastPage = this.currentPage;
+							this.currentPage = page;
+
+							// 关键：进入报名页时加载对应 localStorage
+							if (page === 'signupJN' || page === 'signupSH') {
+								this.loadAttendeesBySession();
+							}
+
+							// 同步 hash
+							if (location.hash !== '#' + page) {
+								history.pushState(null, '', '#' + page);
+							}
+
+							// 回到顶部
+							window.scrollTo({
+								top: 0,
+								behavior: 'instant'
+							});
+						}, 100); // 延迟 0.1 秒
+					},
+
+
+					// 入口：点击“参会登记”
+					enterSignup() {
+						// 1) 登录态判断（默认当 0）
+						const login = this.getCookie('login_status') || '0';
+
+						if (login === '0') {
+							// 未注册未登录：去注册/登录页
+							this.go('signup');
+							return;
+						}
+
+						// 2) 已注册，检查场次
+						const key = localStorage.getItem('exh_session_key'); // 'JN' | 'SH'
+						if (!key) {
+							// 没选过场次：弹出选择器或跳到场次选择页
+							if (typeof this.openSessionPicker === 'function') {
+								this.openSessionPicker();
+							} else {
+								alert('请先选择会议场次');
+							}
+							return;
+						}
+
+						// 3) 根据场次 + checkin 状态决定入口
+						if (key === 'JN') {
+							const checkinJN = this.getCookie('checkinJN') || '0'; // 0未登记 1已登记
+							this.go('signupJN');
+						} else if (key === 'SH') {
+							const checkinSH = this.getCookie('checkinSH') || '0';
+							this.go('signupSH');
+						} else {
+							// 兜底：未识别就回注册页或提示重新选择
+							alert('无法识别会议场次，请重新选择');
+							if (typeof this.openSessionPicker === 'function') this.openSessionPicker();
+							else this.go('signup');
+						}
+					},
+
+
+					// 入口：点击“入场码”
+					async enterAccess() {
+						// 1) 登录态：0=未注册/登录；1=已注册/登录
+						const login = this.getCookie('login_status') || '0';
+						if (login === '0') {
+							this.go('login'); // 未登录 → 去注册/登录页
+							return;
+						}
+
+						// 2) 场次检查（'JN' | 'SH'）
+						const key = localStorage.getItem('exh_session_key');
+						if (!key || (key !== 'JN' && key !== 'SH')) {
+							if (typeof this.openSessionPicker === 'function') {
+								this.openSessionPicker();
+							} else {
+								alert('请先选择会议场次');
+							}
+							return;
+						}
+
+						// 3) 登记检查（按场次）
+						const checkinKey = key === 'JN' ? 'checkinJN' : 'checkinSH';
+						const checkin = this.getCookie(checkinKey) || '0'; // 0未登记 1已登记
+						if (checkin === '0') {
+							// 已注册但未登记 → 前置页1
+							this.go('AccessPre1');
+							return;
+						}
+
+						// 4) 审核状态（按场次存取）
+						const accessCookieKey = key === 'JN' ? 'access_statusJN' : 'access_statusSH';
+						let access = this.getCookie(accessCookieKey) || '0'; // 0未审核 1已审核
+
+						// 5) 向后端拉取最新审核结果（按场次）
+						try {
+							const userId =
+								this.getCookie('user_mobile') ||
+								this.getCookie('user_email') ||
+								'';
+
+							const resp = await fetch('/api/access/status', {
+								method: 'POST',
+								headers: {
+									'Content-Type': 'application/json'
+								},
+								body: JSON.stringify({
+									userId,
+									session: key // 'JN' | 'SH'
+								})
+							});
+
+							if (resp.ok) {
+								const data = await resp.json();
+								// 期望：{ access_status: 0 | 1 }（按当前场次）
+								if (data && (data.access_status === 1 || data.access_status === '1')) {
+									access = '1';
+								} else {
+									access = '0';
+								}
+								this.setCookie(accessCookieKey, access);
+							} else {
+								console.warn('access status http error', resp.status);
+							}
+						} catch (e) {
+							console.warn('access status request failed', e);
+						}
+
+						// 6) 页面分流
+						if (access === '1') {
+							// 审核通过 → 入场码页面
+							this.go('Access');
+							loadAccessQR();
+						} else {
+							// 已登记未审核/未通过 → 前置页2
+							this.go('AccessPre2');
+						}
+					},
+
+
+					goSessionPage() {
+						const sessionKey = localStorage.getItem('exh_session_key');
+						if (sessionKey && this.sessions && this.sessions[sessionKey]) {
+							// 安全进入
+							if (sessionKey === 'JN') {
+								this.go('signupJN');
+							} else if (sessionKey === 'SH') {
+								this.go('signupSH');
+							} else {
+								alert('未知的会议场次');
+							}
+						} else {
+							alert('请先选择会议场次');
+							this.go('selectSession');
+						}
+
+					},
+
+
+					// AccessPre1 → 点击进入登记
+					goSignupFromAccess() {
+						// login_status = 0 或 1 的时候进来
+						// 这里直接走复用函数
+						this.goSessionPage();
+					},
+
+
+
+					setCookie(name, value, days = 30) {
+						const maxAge = days * 24 * 60 * 60;
+						document.cookie =
+							`${encodeURIComponent(name)}=${encodeURIComponent(value)}; path=/; max-age=${maxAge}`;
+					},
+
+
+					getCookie(name) {
+						const m = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+						return m ? decodeURIComponent(m[1]) : null;
+					},
+
+
+					press(e) {
+						e.currentTarget.classList.add('touched');
+					},
+					release(e) {
+						setTimeout(() => e.currentTarget.classList.remove('touched'), 80);
+					},
+					submitSignup() {
+						alert(`提交成功：${this.form.name}`);
+						// 提交后可跳转回首页：
+						// this.go('signup2');
+					},
+					handlehashChange() {
+						const target = (location.hash || '#home').slice(1);
+						const page = this.pagesOrder.includes(target) ? target : 'home';
+						if (page === this.currentPage) return;
+						// hash 变更（可能是后退或前进），比较方向
+						this.setTransitionByDirection(this.currentPage, page);
+						this.lastPage = this.currentPage;
+						this.currentPage = page;
+
+						// 关键：支持浏览器前进/后退直接进报名页时也加载
+						if (page === 'signupJN' || page === 'signupSH') {
+							this.loadAttendeesBySession();
+						}
+
+						window.scrollTo({
+							top: 0,
+							behavior: 'instant'
+						});
+					},
+					goBack() {
+						setTimeout(() => {
+							// 如果有历史记录就返回上一页
+							if (window.history.length > 1) {
+								window.history.back();
+							} else {
+								// 没有历史记录就回到首页
+								this.go('home');
+							}
+						}, 100); // 延迟 0.1 秒
+					},
+
+
+
+
+
+
+
+
+					//登录注册相关
+
+					// Step.1 获取验证码
+					async getCode() {
+						if (this.codeCountdown > 0) return;
+
+						try {
+							if (this.signupType === "phone") {
+								var phone = "";
+								// 先取出手机号
+								if (this.form.mobile !== undefined && this.form.mobile !== null) {
+									phone = this.form.mobile.trim();
+								} else {
+									phone = "";
+								}
+								// 调用手机号校验函数
+								var errorMessage = validatePhone(phone);
+								if (errorMessage) {
+									alert(errorMessage);
+									return;
+								}
+								// 发送验证码
+								await sendPhoneCode(phone);
+								// 启动倒计时
+								startCountdown(this);
+							} else {
+								var email = "";
+								// 先取出邮箱
+								if (this.form.email !== undefined && this.form.email !== null) {
+									email = this.form.email.trim();
+								} else {
+									email = "";
+								}
+								// 调用邮箱校验函数
+								var errorMessage = validateEmail(email);
+								if (errorMessage) {
+									alert(errorMessage);
+									return;
+								}
+								// 调用后端接口发送邮箱验证码（这里暂时用 alert 代替）
+								alert("调用后端接口发送邮箱验证码");
+								// 启动倒计时
+								startCountdown(this);
+							}
+
+						} catch (e) {
+							console.error("验证码发送失败:", e);
+							alert(e.message || "验证码发送失败，请稍后重试");
+						}
+					},
+
+					// 辅助：启动/清除倒计时
+					async startCountdownMethod() {
+						startCountdown(this, 59);
+					},
+
+					async clearCountdownMethod() {
+						clearCountdown(this);
+					},
+
+					// Step.2 提交注册/登录
+					async submitSignup() {
+						if (this.loginLock) return; // 已锁定 → 直接返回
+						this.loginLock = true;
+
+						console.group("[submitSignup]");
+						try {
+							await doSignupLoginFlow(this);
+						} catch (e) {
+							console.error("[submitSignup] error:", e);
+							alert(e.message || "注册失败，请稍后再试");
+						} finally {
+							// 加冷却时间再解锁，避免秒点
+							setTimeout(() => {
+								this.loginLock = false;
+							}, 250);
+						}
+					},
+
+
+					//登录
+
+
+					async getLoginCode() {
+						if (this.codeCountdown > 0) return;
+
+						try {
+							if (this.signupType === "phone") {
+								var phone = "";
+								// 先取出手机号
+								if (this.loginForm.mobile !== undefined && this.loginForm.mobile !== null) {
+									phone = this.loginForm.mobile.trim();
+								} else {
+									phone = "";
+								}
+								// 调用手机号校验函数
+								var errorMessage = validatePhone(phone);
+								if (errorMessage) {
+									alert(errorMessage);
+									return;
+								}
+								// 发送验证码
+								await sendPhoneCode(phone);
+								// 启动倒计时
+								startCountdown(this);
+							} else {
+								var email = "";
+								// 先取出邮箱
+								if (this.loginForm.email !== undefined && this.loginForm.email !== null) {
+									email = this.loginForm.email.trim();
+								} else {
+									email = "";
+								}
+								// 调用邮箱校验函数
+								var errorMessage = validateEmail(email);
+								if (errorMessage) {
+									alert(errorMessage);
+									return;
+								}
+								// 调用后端接口发送邮箱验证码（这里暂时用 alert 代替）
+								alert("调用后端接口发送邮箱验证码");
+								// 启动倒计时
+								startCountdown(this);
+							}
+
+						} catch (e) {
+							console.error("验证码发送失败:", e);
+							alert(e.message || "验证码发送失败，请稍后重试");
+						}
+					},
+
+
+					// 登录提交：和注册统一流程
+					async submitLogin() {
+						if (this.loginLock) return; // 已锁定 → 直接返回
+						this.loginLock = true;
+
+						console.group("[submitLogin]");
+
+						try {
+							await doLoginFlow(this);
+						} catch (e) {
+							console.error("[submitLogin] error:", e);
+							alert(e.message || "登录失败，请稍后再试");
+						} finally {
+							// 加冷却时间再解锁，避免秒点
+							setTimeout(() => {
+								this.loginLock = false;
+							}, 250);
+						}
+					},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+					//登记
+					async submitSignup2() {
+						console.time('[submitSignup2] total');
+						if (this.submitLock) {
+							console.warn('[submitSignup2] 已有提交在进行中，忽略');
+							return;
+						}
+						this.submitLock = true; // 锁定按钮，防止重复点击
+
+						try {
+							// 1) 前置校验 & 场次
+							const {
+								authToken,
+								userMobile
+							} = validateEntry(this);
+							const {
+								sessionKey,
+								place
+							} = getPlaceFromSession(this);
+							console.log('[submitSignup2] session:', {
+								sessionKey,
+								place
+							});
+							if (!place || !['济南', '上海'].includes(place)) {
+								this.openSessionPicker?.();
+								throw new Error('请先选择会议场次（济南/上海）');
+							}
+
+							// 2) 组装出席人 payload
+							const visitorInfoDataList = buildVisitorInfoDataList();
+							console.log('[submitSignup2] normalized visitorInfoDataList:', visitorInfoDataList);
+
+							// 3) 签名头
+							const {
+								headers,
+								timestamp,
+								sign
+							} = buildSignedHeaders(authToken, userMobile, place);
+							console.log('[submitSignup2] signing:', {
+								timestamp,
+								userMobile,
+								place,
+								sign
+							});
+
+							// 4) 是否已提交
+							const hasSubmitted = await checkHasSubmitted(headers);
+							console.log('[submitSignup2] hasSubmitted:', hasSubmitted);
+
+							// 5) customerId（更新需要）
+							let customerId = getCookie('customerId');
+							if (hasSubmitted && !customerId) {
+								customerId = await ensureCustomerId('', headers);
+								if (!customerId) throw new Error('缺少客户ID，无法更新，请重新登录');
+							}
+
+							// 6) 发起登记/更新（含重复键兜底）
+							const basePayload = {
+								place,
+								timestamp,
+								visitorInfoDataList
+							};
+							const {
+								json
+							} = await postAppointmentOrUpdate({
+								headers,
+								basePayload,
+								hasSubmitted,
+								customerId
+							});
+							console.log('[submitSignup2] success:', json);
+
+							// 7) 成功后的落地与跳转
+							await persistAfterSuccess({
+								sessionKey,
+								vm: this
+							});
+							console.log('[submitSignup2] navigate -> status');
+							this.go?.('status');
+						} catch (err) {
+							console.error('[submitSignup2] 出错:', err);
+							alert(err.message || '提交失败，请稍后重试');
+						} finally {
+							this.submitLock = false; // 解锁按钮
+							console.timeEnd('[submitSignup2] total');
+						}
+					},
+
+
+
+
+
+
+
+
+
+
+
+
+					// —— 场次选择相关 ——
+					openSessionPicker() {
+						setTimeout(() => {
+							this.ShowSessionPicker = true;
+						}, 100); // 延迟 0.1 秒
+					},
+					closeSessionPicker() {
+						setTimeout(() => {
+							this.ShowSessionPicker = false;
+						}, 100); // 延迟 0.1 秒
+					},
+					setSession(key) {
+						setTimeout(() => {
+							if (!this.sessions[key]) return;
+							this.selectedSessionKey = key;
+							localStorage.setItem('exh_session_key', key);
+							this.ShowSessionPicker = false;
+							// 可选：切回首页并刷新展示
+							if (this.currentPage !== 'home') this.go('home');
+						}, 100); // 延迟 0.1 秒		
+
+					},
+
+
+
+
+					loadAttendeesBySession() {
+						const key = this.getSessionKey();
+						let list = [];
+						if (key === 'SH') {
+							list = JSON.parse(localStorage.getItem('attendees_SH') || '[]');
+						} else if (key === 'JN') {
+							list = JSON.parse(localStorage.getItem('attendees_JN') || '[]');
+						}
+						if (!Array.isArray(list)) list = [];
+						this.attendees = list;
+					},
+					// —— 工具：取当前场次 key（SH | JN），并做兜底 —— 
+					getSessionKey() {
+						const k = localStorage.getItem('exh_session_key');
+						if (!k) {
+							alert('请先选择会议场次');
+							// 这里看你的路由，若有场次选择页可跳过去
+							// this.go('selectSession');
+						}
+						return k; // 可能为 null
+					},
+
+					// —— 工具：根据场次跳去对应的编辑/列表页 —— 
+					goEditBySession() {
+						const key = this.getSessionKey();
+						if (key === 'SH') this.go('ProfileEditSH');
+						else if (key === 'JN') this.go('ProfileEditJN');
+					},
+					goListBySession() {
+						const key = this.getSessionKey();
+						this.loadAttendeesBySession();
+						if (key === 'SH') this.go('signupSH');
+						else if (key === 'JN') this.go('signupJN');
+						else this.go('signupSH');
+					},
+
+
+					// —— 校验分流：上海用严格版；济南暂时仅校验姓名 —— 
+					validateProfileBySession(profile) {
+						const key = this.getSessionKey();
+						if (key === 'SH') {
+							if (!profile.name) return '请填写姓名';
+							if (!profile.company) return '请填写公司名称';
+							if (!profile.title) return '请填写职位';
+							if (profile.mobile && !/^1[3-9]\d{9}$/.test(profile.mobile)) return '手机号格式不正确';
+							if (profile.needHotel === 'yes') {
+								if (!profile.hotelPlan) return '请选择住宿安排';
+								if (!profile.stayNights || !profile.stayNights.length) return '请选择住宿日期';
+							}
+							return '';
+						} else if (key === 'JN') {
+							if (!profile.name) return '请填写姓名';
+							return '';
+						}
+						return '';
+					},
+
+
+					// —— 新增 —— 
+					openCreateProfile() {
+						this.editing = {
+							id: null,
+							name: '',
+							gender: '男', // '男' | '女'
+							mobile: document.cookie.match(/user_mobile=([^;]+)/)?.[1] || '',
+							company: '',
+							title: '',
+							needHotel: 'no', // 'yes' | 'no'
+							hotelPlan: '', // 'single' | 'twin' | 'self'
+							stayNights: [], // ['9.21晚','9.22晚']
+							carPlate: ''
+						};
+						this.goEditBySession();
+					},
+
+					// —— 编辑 —— 
+					openEditProfile(id) {
+						const src = this.attendees.find(x => x.id === id);
+						if (!src) return;
+						this.editing = JSON.parse(JSON.stringify(src)); // 深拷贝
+						this.goEditBySession();
+					},
+
+					// —— 保存（分场次校验 + 回到对应列表页） —— 
+					saveProfile() {
+						const a = this.editing;
+
+						// 分场次校验
+						const msg = this.validateProfileBySession(a);
+						if (msg) return alert(msg);
+
+						if (a.needHotel !== 'yes') {
+							a.hotelPlan = '';
+							a.stayNights = [];
+						}
+
+						if (a.id == null) {
+							a.id = Date.now();
+							this.attendees.push(JSON.parse(JSON.stringify(a)));
+						} else {
+							const idx = this.attendees.findIndex(x => x.id === a.id);
+							if (idx > -1) this.attendees.splice(idx, 1, JSON.parse(JSON.stringify(a)));
+						}
+
+						// ✅ 分场次保存
+						const key = this.getSessionKey();
+						if (key === 'SH') {
+							localStorage.setItem('attendees_SH', JSON.stringify(this.attendees));
+						} else if (key === 'JN') {
+							localStorage.setItem('attendees_JN', JSON.stringify(this.attendees));
+						}
+
+						// alert('保存出席人员：\n' + JSON.stringify(a, null, 2));
+						this.goListBySession();
+					},
+
+					// —— 删除（回到对应列表页） —— 
+					removeProfile(id) {
+						if (!confirm('确认删除该出席人员吗？')) return;
+						this.attendees = this.attendees.filter(x => x.id !== id);
+
+						// ✅ 分场次保存
+						const key = this.getSessionKey();
+						if (key === 'SH') {
+							localStorage.setItem('attendees_SH', JSON.stringify(this.attendees));
+						} else if (key === 'JN') {
+							localStorage.setItem('attendees_JN', JSON.stringify(this.attendees));
+						}
+
+						alert('已删除');
+						if (this.currentPage === 'ProfileEditSH' || this.currentPage === 'ProfileEditJN') {
+							this.goListBySession();
+						}
+					},
+
+					// —— 展示工具（保留你原有两个） —— 
+					humanizeNights(list) {
+						return list.join('、');
+					},
+					hotelPlanLabel(v) {
+						return ({
+							single: '单人间',
+							twin: '大床房/双人间'
+						})[v] || '';
+					},
+
+
+
+
+
+
+
+
+
+
+
+
+
+					//二维码
+
+					loadAccessQR() {
+						// 兼容旧调用名
+						return this.initAccessQR();
+					},
+					// 进入 Access 页后调用
+					async initAccessQR() {
+						try {
+							// 1) 调接口拿二维码数据（同步写 cookie）
+							const authToken = getCookie("auth_token");
+							const customerId = getCookie("customerId");
+							const data = await fetchAndStoreQrCode(authToken, customerId);
+							// data 就是接口返回的 json.data
+
+							if (!data) {
+								alert("未获取到二维码数据，请稍后再试");
+								return;
+							}
+
+							// 2) 获取当前场次
+							const sessionKey = localStorage.getItem("exh_session_key");
+							if (!sessionKey) {
+								alert("未识别的会议场次");
+								return;
+							}
+
+							// 3) 判断对应城市状态
+							let status = null;
+							if (sessionKey === "JN") status = data.statusJinan;
+							if (sessionKey === "SH") status = data.statusShanghai;
+
+							if (!status) {
+								alert("未获取到该场次的审核状态");
+								return;
+							}
+
+							// 统一归一化为小写
+							const statusNorm = String(status).trim().toLowerCase();
+
+							// 4) 分流逻辑
+							if (statusNorm === "pending") {
+								this.go?.("AccessPre2"); // 已登记待审核
+								return;
+							}
+							if (statusNorm === "approved") {
+								// 必须有二维码内容
+								let qrData = data.qrCode || getCookie("qrCode") || "";
+								if (!qrData) {
+									alert("审核通过，但未获取到二维码，请稍后再试");
+									return;
+								}
+
+								// 清空 QR 容器，重新生成二维码
+								this.qrUrl = "";
+								const el = await this._waitForEl("#qrcode-box", 10, 50);
+								if (!el) {
+									console.error("二维码容器未找到：#qrcode-box");
+									return;
+								}
+								el.innerHTML = "";
+								const size = Math.min(el.clientWidth || 200, el.clientHeight || 200) || 200;
+
+								/* global QRCode */
+								new QRCode(el, {
+									text: qrData,
+									width: size,
+									height: size,
+									correctLevel: QRCode.CorrectLevel.H
+								});
+								return;
+							}
+
+							// 其它情况兜底
+							alert("当前场次未登记或状态异常");
+						} catch (e) {
+							console.error("二维码生成失败：", e);
+							alert("二维码加载失败，请稍后重试");
+						}
+					},
+
+
+					// 工具：等待元素出现（带 $nextTick 与重试）
+					_waitForEl(selector, maxTries = 10, intervalMs = 50) {
+						return new Promise((resolve) => {
+							let tries = 0;
+							const tryFind = () => {
+								this.$nextTick(() => {
+									const el = document.querySelector(selector);
+									if (el) return resolve(el);
+									tries++;
+									if (tries >= maxTries) return resolve(null);
+									setTimeout(tryFind, intervalMs);
+								});
+							};
+							tryFind();
+						});
+					},
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+				},
+				beforeUnmount() {
+					this.clearCountdown();
+				},
+				mounted() {
+					// 1) 根据 hash 定位
+					this.handleHashChange?.();
+
+					// 2) 监听浏览器后退/前进
+					window.addEventListener('hashchange', this.handleHashChange);
+
+					// 3) 首次进入读取缓存；没有就弹出选择
+					const cache = localStorage.getItem('exh_session_key');
+					if (cache && this.sessions && this.sessions[cache]) {
+						this.selectedSessionKey = cache;
+					} else {
+						this.ShowSessionPicker = true; // <-- 统一命名
+					}
+
+					// 4) 访问时做登录/审核检测与本地数据处理（按新 cookies 规则）
+					this.initLoginAccessOnVisit();
+				},
+				beforeUnmount() {
+					window.removeEventListener('hashchange', this.handleHashChange);
+				}
+			};
+			Vue.createApp(App).mount('#app');
+		</script>
+	</body>
+</html>
